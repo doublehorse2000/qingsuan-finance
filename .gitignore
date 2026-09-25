@@ -1,0 +1,10 @@
+node_modules/
+dist/
+dist-mac/
+*.app/
+*.dmg
+.DS_Store
+*.local
+*.tsbuildinfo
+vite.config.js
+vite.config.d.ts
