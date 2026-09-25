@@ -85,9 +85,11 @@ src/
 
 ## 桌面应用路线
 
-当前前端可以直接作为 Tauri 的 Web 资源。下一阶段建议：
+当前跨平台桌面打包使用 Electron + electron-builder，前端构建结果和本地优先的数据能力在 macOS、Windows 和 Linux 中共用。macOS 还保留了 Swift/WebKit 原生外壳，可通过 `npm run build:mac` 单独生成。
 
-1. 使用 Tauri 2 打包 macOS、Windows 和 Linux 应用。
+下一阶段建议：
+
+1. 增加 Developer ID 签名、Windows 签名和 macOS notarization。
 2. 将 `localStorage` 迁移到 SQLite，并保留现有 JSON 导入导出格式。
 3. 增加系统钥匙串加密、自动备份和可选 WebDAV/iCloud 同步。
 4. 增加银行 CSV 映射、重复交易识别和周期性交易。
