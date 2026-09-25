@@ -61,6 +61,19 @@ git push origin v0.1.0
 
 首次打开未签名应用时，如果系统提示无法验证开发者，可在“系统设置 → 隐私与安全性”中选择“仍要打开”。
 
+### macOS 下载后提示“应用已损坏”
+
+当前 GitHub Actions 使用的是未签名构建，macOS 下载后会附加隔离属性，Gatekeeper 可能显示“应用已损坏”。请先把应用从 DMG 拖到“应用程序”文件夹，然后在终端执行：
+
+```bash
+xattr -dr com.apple.quarantine "/Applications/清算.app"
+open "/Applications/清算.app"
+```
+
+也可以在 Finder 中右键点击“清算.app”并选择“打开”，或到“系统设置 → 隐私与安全性”中点击“仍要打开”。如果你下载的是 ZIP，请先解压，再对解压后的 `.app` 执行上述命令。
+
+要让普通用户无需执行这些操作，需要 Apple Developer ID Application 签名和 notarization；这需要在 GitHub Secrets 中配置 Apple 开发者证书和公证凭据，当前仓库尚未配置这些凭据。
+
 ## 项目结构
 
 ```text
