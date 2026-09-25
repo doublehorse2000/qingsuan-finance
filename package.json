@@ -2,10 +2,15 @@
   "name": "qingsuan-finance",
   "private": true,
   "version": "0.1.0",
+  "description": "本地优先的个人财务管理工具",
+  "author": "doublehorse2000",
   "type": "module",
+  "main": "electron/main.cjs",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
     "build": "tsc -b && vite build",
+    "electron:dev": "npm run build && electron .",
+    "package:desktop": "npm run build && electron-builder --publish never",
     "build:mac": "bash scripts/build-mac-app.sh",
     "package:mac": "bash scripts/package-mac-dmg.sh",
     "preview": "vite preview --host 127.0.0.1",
@@ -21,8 +26,66 @@
     "@types/react": "^19.1.16",
     "@types/react-dom": "^19.1.9",
     "@vitejs/plugin-react": "^5.0.4",
+    "electron": "^38.8.6",
+    "electron-builder": "^26.15.3",
     "typescript": "^5.9.2",
     "vite": "^7.1.7",
     "vitest": "^3.2.4"
+  },
+  "build": {
+    "appId": "com.qingsuan.finance",
+    "productName": "清算",
+    "asar": true,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "category": "public.app-category.finance",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": ["x64", "arm64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64", "arm64"]
+        }
+      ]
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true
+    },
+    "linux": {
+      "category": "Office",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": ["x64"]
+        },
+        {
+          "target": "deb",
+          "arch": ["x64"]
+        }
+      ]
+    },
+    "artifactName": "清算-${version}-${os}-${arch}.${ext}"
   }
 }

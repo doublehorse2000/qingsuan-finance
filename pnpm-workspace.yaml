@@ -2,7 +2,6 @@ packages:
   - .
 
 allowBuilds:
-  esbuild: set this to true or false
-
-onlyBuiltDependencies:
-  - esbuild
+  electron: true
+  electron-winstaller: false
+  esbuild: true

@@ -48,6 +48,17 @@ npm run package:mac
 open dist-mac/清算-macOS.dmg
 ```
 
+## GitHub Actions 跨平台打包
+
+仓库内的 `.github/workflows/build-desktop.yml` 会在 GitHub Actions 中分别构建 macOS、Windows 和 Linux 安装包。手动运行工作流可以获得 Actions 构建产物；推送版本标签时还会自动创建 GitHub Release：
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+构建产物包括 macOS DMG/ZIP、Windows 安装程序/ZIP，以及 Linux AppImage/DEB。也可以在本机运行 `npm run package:desktop` 生成当前系统的桌面安装包，输出在 `release/`。
+
 首次打开未签名应用时，如果系统提示无法验证开发者，可在“系统设置 → 隐私与安全性”中选择“仍要打开”。
 
 ## 项目结构

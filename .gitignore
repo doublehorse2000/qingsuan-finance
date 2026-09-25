@@ -1,6 +1,7 @@
 node_modules/
 dist/
 dist-mac/
+release/
 *.app/
 *.dmg
 .DS_Store
