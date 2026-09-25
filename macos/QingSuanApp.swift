@@ -43,7 +43,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         configuration.setURLSchemeHandler(ResourceSchemeHandler(), forURLScheme: "qingsuan")
         let contentController = configuration.userContentController
         contentController.add(self, name: "nativeLog")
+        contentController.add(self, name: "saveFile")
         contentController.addUserScript(WKUserScript(source: """
+            window.__qingsuanSaveResolvers = {};
+            window.__qingsuanResolveSave = function (result) {
+                var entry = window.__qingsuanSaveResolvers[result.id];
+                if (!entry) return;
+                delete window.__qingsuanSaveResolvers[result.id];
+                entry.resolve(result);
+            };
+            window.qingsuanDesktop = {
+                saveFile: function (request) {
+                    return new Promise(function (resolve, reject) {
+                        var id = 'save-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+                        window.__qingsuanSaveResolvers[id] = { resolve: resolve, reject: reject };
+                        window.webkit.messageHandlers.saveFile.postMessage({ id: id, filename: request.filename, content: request.content, mimeType: request.mimeType });
+                    });
+                }
+            };
             function qingsuanReport(message) {
                 window.webkit.messageHandlers.nativeLog.postMessage(String(message));
                 var render = function () {
@@ -90,7 +107,45 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        if message.name == "saveFile", let request = message.body as? [String: Any] {
+            saveFile(request)
+            return
+        }
         print("QingSuan WebView: \(message.body)")
+    }
+
+    private func saveFile(_ request: [String: Any]) {
+        guard let id = request["id"] as? String,
+              let filename = request["filename"] as? String,
+              let content = request["content"] as? String else { return }
+
+        let panel = NSSavePanel()
+        panel.title = "导出清算数据"
+        panel.nameFieldStringValue = URL(fileURLWithPath: filename).lastPathComponent
+        panel.canCreateDirectories = true
+        let ext = URL(fileURLWithPath: filename).pathExtension
+        if !ext.isEmpty {
+            panel.allowedFileTypes = [ext]
+        }
+        panel.begin { [weak self] response in
+            guard let self else { return }
+            var saved = false
+            var savedPath: String?
+            if response == .OK, let url = panel.url {
+                do {
+                    try Data(content.utf8).write(to: url, options: .atomic)
+                    saved = true
+                    savedPath = url.path
+                } catch {
+                    print("QingSuan export failed: \(error.localizedDescription)")
+                }
+            }
+            var result: [String: Any] = ["id": id, "saved": saved]
+            if let savedPath { result["path"] = savedPath }
+            guard let jsonData = try? JSONSerialization.data(withJSONObject: result),
+                  let json = String(data: jsonData, encoding: .utf8) else { return }
+            self.webView.evaluateJavaScript("window.__qingsuanResolveSave(\(json));")
+        }
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {

@@ -1,6 +1,6 @@
 import { BrainCircuit, Check, Clipboard, Download, FileJson, Lightbulb, LockKeyhole, ShieldCheck, TriangleAlert } from 'lucide-react';
 import { useMemo, useState } from 'react';
-import { buildAnalysisPrompt, exportAnalysisJson, exportAnalysisMarkdown } from '../lib/export';
+import { buildAnalysisPrompt, exportAnalysisJson, exportAnalysisMarkdown, exportAnalysisText } from '../lib/export';
 import { formatMoney, formatPercent, getBudgetStatus, getCategorySpending, getMonthSummary } from '../lib/finance';
 import type { AppData } from '../types';
 
@@ -59,6 +59,7 @@ export function Analysis({ data, month }: AnalysisProps) {
           </label>
           <div className="export-actions">
             <button className="button primary" type="button" onClick={copyPrompt}>{copied ? <Check size={17} /> : <Clipboard size={17} />}{copied ? '已复制' : '复制分析提示词'}</button>
+            <button className="button secondary" type="button" onClick={() => exportAnalysisText(data, month, includeTransactions)}><Download size={17} /> 文本 TXT</button>
             <button className="button secondary" type="button" onClick={() => exportAnalysisMarkdown(data, month, includeTransactions)}><Download size={17} /> Markdown</button>
             <button className="button secondary" type="button" onClick={() => exportAnalysisJson(data, month, includeTransactions)}><FileJson size={17} /> JSON</button>
           </div>
