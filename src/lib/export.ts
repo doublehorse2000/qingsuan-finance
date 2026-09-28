@@ -28,10 +28,13 @@ const csvCell = (value: string | number) => `"${String(value).replaceAll('"', '"
 
 export const exportTransactionsCsv = async (data: AppData) => {
   const rows = [
-    ['日期', '类型', '金额', '分类', '账户', '交易对象', '备注'],
+    ['日期', '类型', '金额', '货币', '分类', '账户', '交易对象', '备注'],
     ...[...data.transactions]
       .sort((a, b) => b.date.localeCompare(a.date))
-      .map((item) => [item.date, item.type === 'income' ? '收入' : '支出', item.amount, item.category, data.accounts.find((account) => account.id === item.accountId)?.name ?? '', item.merchant, item.note]),
+      .map((item) => {
+        const account = data.accounts.find((candidate) => candidate.id === item.accountId);
+        return [item.date, item.type === 'income' ? '收入' : '支出', item.amount, account?.currency ?? 'CNY', item.category, account?.name ?? '', item.merchant, item.note];
+      }),
   ];
   await download(`qingsuan-transactions-${new Date().toISOString().slice(0, 10)}.csv`, `\uFEFF${rows.map((row) => row.map(csvCell).join(',')).join('\n')}`, 'text/csv;charset=utf-8');
 };
@@ -61,7 +64,7 @@ export const buildAnalysisPackage = (data: AppData, month: string, includeTransa
     categorySpending: getCategorySpending(data, month),
     budgets: budgets.map((item) => ({ category: item.category, budget: item.amount, spent: item.spent, usagePercent: Number((item.ratio * 100).toFixed(1)) })),
     monthlyTrend: getMonthlyTrend(data, month, 6),
-    accounts: data.accounts.map((item) => ({ name: item.name, kind: item.kind, balance: item.balance })),
+    accounts: data.accounts.map((item) => ({ name: item.name, kind: item.kind, balance: item.balance, currency: item.currency ?? 'CNY', exchangeRateToCny: item.exchangeRateToCny ?? (item.currency === 'USD' ? 7.2 : 1) })),
     investments: data.investments.map((item) => ({
       name: item.name,
       symbol: item.symbol,
@@ -70,14 +73,17 @@ export const buildAnalysisPackage = (data: AppData, month: string, includeTransa
       cost: investmentCost(item),
       gain: investmentValue(item) - investmentCost(item),
     })),
-    transactions: includeTransactions ? summary.transactions.map(({ id: _id, accountId: _accountId, ...item }) => item) : undefined,
+    transactions: includeTransactions ? summary.transactions.map(({ id: _id, accountId, ...item }) => ({
+      ...item,
+      currency: data.accounts.find((account) => account.id === accountId)?.currency ?? 'CNY',
+    })) : undefined,
   };
   return payload;
 };
 
 export const buildAnalysisPrompt = (data: AppData, month: string, includeTransactions: boolean) => {
   const payload = buildAnalysisPackage(data, month, includeTransactions);
-  return `你是一名审慎、非推销导向的个人财务分析助手。请基于下面的数据完成月度复盘：\n\n1. 用 5 句话总结本月财务健康度。\n2. 找出最多 3 个值得关注的变化或风险，并引用具体数字。\n3. 给出下月可执行的预算调整，按优先级排序。\n4. 评价储蓄率、应急资金和负债水平；信息不足时明确说明，不要猜测。\n5. 投资部分只讨论配置、集中度和成本，不预测涨跌，不做具体买卖指令。\n\n财务数据（人民币）：\n${JSON.stringify(payload, null, 2)}`;
+  return `你是一名审慎、非推销导向的个人财务分析助手。请基于下面的数据完成月度复盘：\n\n1. 用 5 句话总结本月财务健康度。\n2. 找出最多 3 个值得关注的变化或风险，并引用具体数字。\n3. 给出下月可执行的预算调整，按优先级排序。\n4. 评价储蓄率、应急资金和负债水平；信息不足时明确说明，不要猜测。\n5. 投资部分只讨论配置、集中度和成本，不预测涨跌，不做具体买卖指令。\n\n财务数据（汇总金额按人民币，流水金额保留账户币种）：\n${JSON.stringify(payload, null, 2)}`;
 };
 
 export const exportAnalysisJson = async (data: AppData, month: string, includeTransactions: boolean) => {

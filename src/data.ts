@@ -44,10 +44,10 @@ export const createDemoData = (): AppData => ({
   profile: { name: '我的财务', currency: 'CNY' },
   transactions,
   accounts: [
-    { id: 'a1', name: '工资卡', kind: 'asset', balance: 42680, color: '#3d6b5a' },
-    { id: 'a2', name: '日常账户', kind: 'asset', balance: 8640, color: '#d6a84b' },
-    { id: 'a3', name: '现金', kind: 'asset', balance: 1200, color: '#4d7c8a' },
-    { id: 'a4', name: '信用卡', kind: 'liability', balance: 3280, color: '#c65f6a' },
+    { id: 'a1', name: '工资卡', kind: 'asset', balance: 42680, color: '#3d6b5a', currency: 'CNY', exchangeRateToCny: 1 },
+    { id: 'a2', name: '日常账户', kind: 'asset', balance: 8640, color: '#d6a84b', currency: 'CNY', exchangeRateToCny: 1 },
+    { id: 'a3', name: '现金', kind: 'asset', balance: 1200, color: '#4d7c8a', currency: 'CNY', exchangeRateToCny: 1 },
+    { id: 'a4', name: '信用卡', kind: 'liability', balance: 3280, color: '#c65f6a', currency: 'CNY', exchangeRateToCny: 1 },
   ],
   budgets: EXPENSE_CATEGORIES.slice(0, 8).map((category, index) => ({
     id: `b${index + 1}`,

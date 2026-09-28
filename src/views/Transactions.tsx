@@ -1,6 +1,6 @@
 import { Download, Pencil, Plus, Search, Trash2, WalletCards } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { formatMoney, getMonthSummary } from '../lib/finance';
+import { formatMoney, getAccountCurrency, getMonthSummary, getTransactionAmountInBase } from '../lib/finance';
 import type { AppData, Transaction } from '../types';
 
 interface TransactionsProps {
@@ -26,10 +26,10 @@ export function Transactions({ data, month, onAdd, onEdit, onDelete, onExport }:
     ? data.transactions
     : getMonthSummary(data, monthFilter).transactions, [data, monthFilter]);
   const visibleSummary = useMemo(() => {
-    const income = visibleTransactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0);
-    const expense = visibleTransactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
+    const income = visibleTransactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
+    const expense = visibleTransactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
     return { income, expense, balance: income - expense };
-  }, [visibleTransactions]);
+  }, [data, visibleTransactions]);
   const categories = [...new Set(visibleTransactions.map((item) => item.category))];
   const filtered = useMemo(() => visibleTransactions
     .filter((item) => type === 'all' || item.type === type)
@@ -77,19 +77,20 @@ export function Transactions({ data, month, onAdd, onEdit, onDelete, onExport }:
             <table>
               <thead><tr><th>日期</th><th>交易对象</th><th>分类</th><th>账户</th><th className="amount-cell">金额</th><th aria-label="操作" /></tr></thead>
               <tbody>
-                {filtered.map((item) => (
-                  <tr key={item.id}>
+                {filtered.map((item) => {
+                  const account = data.accounts.find((candidate) => candidate.id === item.accountId);
+                  return <tr key={item.id}>
                     <td className="muted-cell">{item.date}</td>
                     <td><div className="table-title"><strong>{item.merchant || item.category}</strong>{item.note && <span>{item.note}</span>}</div></td>
                     <td><span className="category-chip">{item.category}</span></td>
-                    <td className="muted-cell">{data.accounts.find((account) => account.id === item.accountId)?.name ?? '未指定'}</td>
-                    <td className={`amount-cell ${item.type === 'income' ? 'positive' : ''}`}><strong>{item.type === 'income' ? '+' : '-'}{formatMoney(item.amount)}</strong></td>
+                    <td className="muted-cell">{account ? `${account.name} · ${getAccountCurrency(account)}` : '未指定'}</td>
+                    <td className={`amount-cell ${item.type === 'income' ? 'positive' : ''}`}><strong>{item.type === 'income' ? '+' : '-'}{formatMoney(item.amount, false, getAccountCurrency(account))}</strong></td>
                     <td><div className="row-actions">
                       <button className="icon-button small" type="button" onClick={() => onEdit(item)} aria-label="编辑流水" title="编辑"><Pencil size={16} /></button>
                       <button className="icon-button small danger" type="button" onClick={() => onDelete(item)} aria-label="删除流水" title="删除"><Trash2 size={16} /></button>
                     </div></td>
-                  </tr>
-                ))}
+                  </tr>;
+                })}
               </tbody>
             </table>
           </div>

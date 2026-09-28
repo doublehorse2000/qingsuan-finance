@@ -4,10 +4,10 @@ import { BarChart3, BrainCircuit, Landmark, LayoutDashboard, Menu, Monitor, Moon
 import { Modal } from './components/Modal';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from './data';
 import { exportTransactionsCsv } from './lib/export';
-import { getCurrentNetWorth, makeId } from './lib/finance';
-import { useFinanceData } from './store';
+import { currencySymbol, getCurrentNetWorth, makeId } from './lib/finance';
+import { normalizeAppData, useFinanceData } from './store';
 import { storage } from './lib/storage';
-import type { Account, AppData, Investment, InvestmentType, Transaction, TransactionType, ViewId } from './types';
+import type { Account, AppData, Currency, Investment, InvestmentType, Transaction, TransactionType, ViewId } from './types';
 import { Analysis } from './views/Analysis';
 import { Assets } from './views/Assets';
 import { Budgets } from './views/Budgets';
@@ -50,8 +50,10 @@ export default function App() {
   const [transactionModal, setTransactionModal] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [transactionType, setTransactionType] = useState<TransactionType>('expense');
+  const [transactionAccountId, setTransactionAccountId] = useState('');
   const [accountModal, setAccountModal] = useState(false);
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
+  const [accountCurrency, setAccountCurrency] = useState<Currency>('CNY');
   const [investmentModal, setInvestmentModal] = useState(false);
   const [editingInvestment, setEditingInvestment] = useState<Investment | null>(null);
   const [snapshotModal, setSnapshotModal] = useState(false);
@@ -80,6 +82,7 @@ export default function App() {
   const openTransaction = (transaction?: Transaction) => {
     setEditingTransaction(transaction ?? null);
     setTransactionType(transaction?.type ?? 'expense');
+    setTransactionAccountId(transaction?.accountId ?? '');
     setTransactionModal(true);
   };
 
@@ -126,6 +129,7 @@ export default function App() {
 
   const openAccount = (account?: Account) => {
     setEditingAccount(account ?? null);
+    setAccountCurrency(account?.currency === 'USD' ? 'USD' : 'CNY');
     setAccountModal(true);
   };
 
@@ -138,6 +142,8 @@ export default function App() {
       kind: String(form.get('kind')) as Account['kind'],
       balance: Math.max(0, Number(form.get('balance'))),
       color: String(form.get('color')),
+      currency: String(form.get('currency')) as Currency,
+      exchangeRateToCny: String(form.get('currency')) === 'USD' ? Math.max(0.0001, Number(form.get('exchangeRateToCny')) || 7.2) : 1,
     };
     setData((current) => ({ ...current, accounts: editingAccount ? current.accounts.map((item) => item.id === editingAccount.id ? next : item) : [...current.accounts, next] }));
     setAccountModal(false);
@@ -242,7 +248,7 @@ export default function App() {
           {view === 'budgets' && <Budgets data={data} month={month} onChange={(budgets) => setData((current) => ({ ...current, budgets }))} />}
           {view === 'assets' && <Assets data={data} onAddAccount={() => openAccount()} onEditAccount={openAccount} onDeleteAccount={deleteAccount} onAddInvestment={() => openInvestment()} onEditInvestment={openInvestment} onDeleteInvestment={deleteInvestment} />}
           {view === 'analysis' && <Analysis data={data} month={month} />}
-          {view === 'settings' && <SettingsView data={data} isDemo={isDemo} onImport={(next: AppData) => replaceData(next, false)} onResetEmpty={resetEmpty} onResetDemo={resetDemo} />}
+          {view === 'settings' && <SettingsView data={data} isDemo={isDemo} onImport={(next: AppData) => replaceData(normalizeAppData(next), false)} onResetEmpty={resetEmpty} onResetDemo={resetDemo} />}
         </div>
       </main>
 
@@ -250,20 +256,22 @@ export default function App() {
         <div className="segmented form-segmented"><button type="button" className={transactionType === 'expense' ? 'active' : ''} onClick={() => setTransactionType('expense')}>支出</button><button type="button" className={transactionType === 'income' ? 'active' : ''} onClick={() => setTransactionType('income')}>收入</button></div>
         <input type="hidden" name="type" value={transactionType} />
         <div className="form-grid">
-          <label className="field full"><span>金额</span><div className="money-input"><span>¥</span><input name="amount" type="number" min="0.01" step="0.01" defaultValue={editingTransaction?.amount ?? ''} placeholder="0.00" autoFocus required /></div></label>
+          <label className="field full"><span>金额</span><div className="money-input"><span>{currencySymbol(data.accounts.find((item) => item.id === transactionAccountId)?.currency)}</span><input name="amount" type="number" min="0.01" step="0.01" defaultValue={editingTransaction?.amount ?? ''} placeholder="0.00" autoFocus required /></div></label>
           <label className="field"><span>日期</span><input name="date" type="date" defaultValue={editingTransaction?.date ?? transactionDate} required /></label>
           <label className="field"><span>分类</span><select name="category" defaultValue={editingTransaction?.category ?? (transactionType === 'income' ? INCOME_CATEGORIES[0] : EXPENSE_CATEGORIES[0])}>{(transactionType === 'income' ? INCOME_CATEGORIES : EXPENSE_CATEGORIES).map((item) => <option key={item}>{item}</option>)}</select></label>
           <label className="field"><span>交易对象</span><input name="merchant" defaultValue={editingTransaction?.merchant ?? ''} placeholder={transactionType === 'income' ? '例如：公司薪资' : '例如：超市、房东'} required /></label>
-          <label className="field"><span>账户</span><select name="accountId" defaultValue={editingTransaction?.accountId ?? ''}><option value="">未指定账户</option>{data.accounts.filter((item) => item.kind === 'asset').map((item) => <option value={item.id} key={item.id}>{item.name}</option>)}</select></label>
+          <label className="field"><span>账户</span><select name="accountId" value={transactionAccountId} onChange={(event) => setTransactionAccountId(event.target.value)}><option value="">未指定账户</option>{data.accounts.filter((item) => item.kind === 'asset').map((item) => <option value={item.id} key={item.id}>{item.name}（{item.currency === 'USD' ? '美元' : '人民币'}）</option>)}</select></label>
           <label className="field full"><span>备注（可选）</span><input name="note" defaultValue={editingTransaction?.note ?? ''} placeholder="补充说明" /></label>
         </div>
       </Modal>
 
-      <Modal key={`account-${editingAccount?.id ?? 'new'}`} open={accountModal} title={editingAccount ? '编辑账户' : '添加账户'} submitLabel={editingAccount ? '保存修改' : '添加账户'} onClose={() => setAccountModal(false)} onSubmit={saveAccount}>
+      <Modal key={`account-${editingAccount?.id ?? 'new'}`} open={accountModal} title={editingAccount ? '编辑账户' : '添加账户'} description="余额按账户原币种保存，汇总时统一换算为人民币。" submitLabel={editingAccount ? '保存修改' : '添加账户'} onClose={() => setAccountModal(false)} onSubmit={saveAccount}>
         <div className="form-grid">
           <label className="field full"><span>账户名称</span><input name="name" defaultValue={editingAccount?.name ?? ''} placeholder="例如：工资卡" autoFocus required /></label>
           <label className="field"><span>账户类型</span><select name="kind" defaultValue={editingAccount?.kind ?? 'asset'}><option value="asset">资产账户</option><option value="liability">负债账户</option></select></label>
           <label className="field"><span>当前余额</span><input name="balance" type="number" min="0" step="0.01" defaultValue={editingAccount?.balance ?? ''} placeholder="0.00" required /></label>
+          <label className="field"><span>账户货币</span><select name="currency" value={accountCurrency} onChange={(event) => setAccountCurrency(event.target.value as Currency)}><option value="CNY">人民币（CNY）</option><option value="USD">美元（USD）</option></select></label>
+          {accountCurrency === 'USD' && <label className="field"><span>美元兑人民币</span><input name="exchangeRateToCny" type="number" min="0.0001" step="0.0001" defaultValue={editingAccount?.currency === 'USD' ? editingAccount.exchangeRateToCny ?? 7.2 : 7.2} required /><small>1 美元 = 多少人民币</small></label>}
           <label className="field full color-field"><span>标记颜色</span><input name="color" type="color" defaultValue={editingAccount?.color ?? '#3d6b5a'} /></label>
         </div>
       </Modal>
