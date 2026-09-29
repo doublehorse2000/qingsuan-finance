@@ -26,13 +26,14 @@ import pdfplumber
 DATE_RE = re.compile(r"^\d{4}-\d{2}-\d{2}$")
 AMOUNT_RE = re.compile(r"^[+-]?[\d,]+\.\d{2}$")
 CURRENCY_RE = re.compile(r"^[A-Z]{3}$")
-EXPENSE_CATEGORIES = ("餐饮", "居住", "交通", "购物", "健康", "学习", "娱乐", "人情", "其他")
+EXPENSE_CATEGORIES = ("餐饮", "居住", "交通", "购物", "健康", "学习", "娱乐", "人情", "投资支出", "其他")
 INCOME_CATEGORIES = ("工资", "奖金", "投资收益", "副业", "其他收入")
 DEFAULT_LLM_URLS = {
     "ollama": "http://127.0.0.1:11434/api/chat",
     "openai": "http://127.0.0.1:8080/v1/chat/completions",
 }
 CLASSIFY_BATCH_SIZE = 20
+INVESTMENT_COUNTERPARTY_KEYWORDS = ("基金销售",)
 
 # These x coordinates are stable in the CMB statement layout and let us
 # separate the columns even when the counterparty wraps to another line.
@@ -190,6 +191,15 @@ def _classification_key(transaction: ParsedTransaction) -> tuple[str, str, str, 
     )
 
 
+def _rule_based_category(transaction: ParsedTransaction) -> str | None:
+    """Apply user-confirmed merchant rules before asking the local model."""
+    if transaction.signed_amount < 0 and any(
+        keyword in transaction.counterparty for keyword in INVESTMENT_COUNTERPARTY_KEYWORDS
+    ):
+        return "投资支出"
+    return None
+
+
 def _request_categories(
     batch: list[dict], provider: str, url: str, model: str, timeout: float
 ) -> dict[int, str]:
@@ -202,7 +212,8 @@ def _request_categories(
         + "；type=收入只能从以下分类选择："
         + "、".join(INCOME_CATEGORIES)
         + "。不要把收入分类用于支出，也不要把支出分类用于收入。"
-        "基金申购、转账和换汇等资金内部流转不等于消费或收入；"
+        "基金申购、股票或债券买入、证券账户入金等投资用途的支出归为投资支出；"
+        "基金赎回、分红等实际投资回款可归为投资收益；普通转账和换汇等资金内部流转不等于消费或收入，"
         "受限于现有分类，支出归为其他，收入归为其他收入。"
         "无法确定时，支出选其他，收入选其他收入。不要修改交易类型或金额。"
     )
@@ -268,10 +279,17 @@ def classify_transactions(
     samples: dict[tuple[str, str, str, str], ParsedTransaction] = {}
     for transaction in transactions:
         samples.setdefault(_classification_key(transaction), transaction)
-    keys = list(samples)
     categories: dict[tuple[str, str, str, str], str] = {}
-    for offset in range(0, len(keys), CLASSIFY_BATCH_SIZE):
-        batch_keys = keys[offset:offset + CLASSIFY_BATCH_SIZE]
+    model_keys: list[tuple[str, str, str, str]] = []
+    for key, transaction in samples.items():
+        rule_category = _rule_based_category(transaction)
+        if rule_category is None:
+            model_keys.append(key)
+        else:
+            categories[key] = rule_category
+
+    for offset in range(0, len(model_keys), CLASSIFY_BATCH_SIZE):
+        batch_keys = model_keys[offset:offset + CLASSIFY_BATCH_SIZE]
         batch = [
             {"id": index, "type": key[0], "currency": key[1], "summary": key[2],
              "counterparty": key[3], "amount": abs(samples[key].signed_amount)}

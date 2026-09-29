@@ -35,6 +35,21 @@ class ClassificationTests(unittest.TestCase):
         self.assertEqual(len(calls), 1)
         self.assertEqual(len(calls[0]), 2)
 
+    def test_user_confirmed_fund_sales_rule_bypasses_model(self):
+        fund_purchase = ParsedTransaction(
+            "2026-07-01", "CNY", -10, 100, "快捷支付", "蚂蚁（杭州）基金销售有限公司", 1
+        )
+
+        def should_not_be_called(*_args):
+            raise AssertionError("基金销售规则应在调用模型前生效")
+
+        self.assertEqual(
+            classify_transactions(
+                [fund_purchase], "ollama", "http://127.0.0.1/test", "llama3", 10, should_not_be_called
+            ),
+            ["投资支出"],
+        )
+
     def test_accepts_local_model_response_formats(self):
         batch = [{"id": 0, "type": "支出", "summary": "快捷支付", "counterparty": "餐厅", "currency": "CNY", "amount": 18.5}]
         for provider in ("ollama", "openai"):
@@ -48,6 +63,15 @@ class ClassificationTests(unittest.TestCase):
                     sent = json.loads(request.data)
                     self.assertEqual(sent["model"], "llama3")
                     self.assertEqual(json.loads(sent["messages"][1]["content"]), batch)
+
+    def test_accepts_investment_expense_category(self):
+        batch = [{"id": 0, "type": "支出", "summary": "基金申购"}]
+        body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": "投资支出"}]})}}
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
+            self.assertEqual(
+                _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10),
+                {0: "投资支出"},
+            )
 
     def test_rejects_invalid_category(self):
         batch = [{"id": 0, "type": "支出"}]
