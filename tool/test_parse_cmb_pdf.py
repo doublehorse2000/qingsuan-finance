@@ -53,6 +53,15 @@ class ClassificationTests(unittest.TestCase):
         batch = [{"id": 0, "type": "支出"}]
         body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": "工资"}]})}}
         with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
+            self.assertEqual(
+                _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10),
+                {0: "其他"},
+            )
+
+    def test_rejects_category_outside_both_direction_lists(self):
+        batch = [{"id": 0, "type": "支出"}]
+        body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": "未知分类"}]})}}
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
             with self.assertRaisesRegex(ValueError, "分类无效"):
                 _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10)
 

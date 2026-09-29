@@ -197,8 +197,11 @@ def _request_categories(
         "你是个人银行流水分类器。只返回 JSON 对象，格式为 "
         '{"items":[{"id":0,"category":"餐饮"}]}。'
         "每条输入必须有且仅有一个对应 id。只根据交易摘要、交易对象、收支方向、币种和金额判断。"
-        "支出只能从以下分类选择：" + "、".join(EXPENSE_CATEGORIES) + "。"
-        "收入只能从以下分类选择：" + "、".join(INCOME_CATEGORIES) + "。"
+        "每条记录必须严格按照 type 选择分类：type=支出只能从以下分类选择："
+        + "、".join(EXPENSE_CATEGORIES)
+        + "；type=收入只能从以下分类选择："
+        + "、".join(INCOME_CATEGORIES)
+        + "。不要把收入分类用于支出，也不要把支出分类用于收入。"
         "基金申购、转账和换汇等资金内部流转不等于消费或收入；"
         "受限于现有分类，支出归为其他，收入归为其他收入。"
         "无法确定时，支出选其他，收入选其他收入。不要修改交易类型或金额。"
@@ -233,9 +236,22 @@ def _request_categories(
         expected = {item["id"]: item["type"] for item in batch}
         for item in items:
             index, category = item["id"], item["category"]
-            allowed = INCOME_CATEGORIES if expected[index] == "收入" else EXPENSE_CATEGORIES
-            if index in categories or category not in allowed:
+            if index not in expected:
+                raise ValueError(f"id={index} 不在请求中")
+            transaction_type = expected[index]
+            allowed = INCOME_CATEGORIES if transaction_type == "收入" else EXPENSE_CATEGORIES
+            if index in categories:
                 raise ValueError(f"id={index} 的分类无效：{category}")
+            if category not in allowed:
+                # Small local models occasionally return a category from the
+                # opposite direction. Preserve the transaction type rather
+                # than failing the whole CSV conversion.
+                if transaction_type == "支出" and category in INCOME_CATEGORIES:
+                    category = "其他"
+                elif transaction_type == "收入" and category in EXPENSE_CATEGORIES:
+                    category = "其他收入"
+                else:
+                    raise ValueError(f"id={index} 的分类无效：{category}")
             categories[index] = category
         if categories.keys() != expected.keys():
             raise ValueError("分类数量或 id 与请求不一致")
