@@ -1,5 +1,6 @@
 export type TransactionType = 'income' | 'expense';
 export type AccountKind = 'asset' | 'liability';
+export type Currency = 'CNY' | 'USD';
 export type InvestmentType = 'fund' | 'stock' | 'bond' | 'cash' | 'other';
 
 export interface Transaction {
@@ -19,6 +20,10 @@ export interface Account {
   kind: AccountKind;
   balance: number;
   color: string;
+  /** Currency used for the account balance and its transactions. Old backups omit this and default to CNY. */
+  currency?: Currency;
+  /** Conversion rate from one unit of the account currency to CNY. */
+  exchangeRateToCny?: number;
 }
 
 export interface Budget {
@@ -60,4 +65,4 @@ export interface AppData {
   snapshots: MonthlySnapshot[];
 }
 
-export type ViewId = 'dashboard' | 'transactions' | 'budgets' | 'assets' | 'analysis' | 'settings';
+export type ViewId = 'dashboard' | 'transactions' | 'import' | 'budgets' | 'assets' | 'analysis' | 'settings';

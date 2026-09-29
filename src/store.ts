@@ -1,10 +1,23 @@
 import { useEffect, useState } from 'react';
 import { createDemoData, createEmptyData } from './data';
+import { normalizeImportedAccountName } from './lib/csv';
 import { storage } from './lib/storage';
-import type { AppData } from './types';
+import type { AppData, Currency } from './types';
 
 const STORAGE_KEY = 'qingsuan.finance.v1';
 const DEMO_KEY = 'qingsuan.finance.isDemo';
+
+export const normalizeAppData = (data: AppData): AppData => ({
+  ...data,
+  accounts: data.accounts.map((account) => ({
+    ...account,
+    name: normalizeImportedAccountName(account.name),
+    currency: (account.currency === 'USD' ? 'USD' : 'CNY') as Currency,
+    exchangeRateToCny: account.currency === 'USD'
+      ? (account.exchangeRateToCny && account.exchangeRateToCny > 0 ? account.exchangeRateToCny : 7.2)
+      : 1,
+  })),
+});
 
 const isAppData = (value: unknown): value is AppData => {
   if (!value || typeof value !== 'object') return false;
@@ -22,7 +35,7 @@ const loadData = () => {
     const saved = storage.getItem(STORAGE_KEY);
     if (saved) {
       const parsed: unknown = JSON.parse(saved);
-      if (isAppData(parsed)) return parsed;
+      if (isAppData(parsed)) return normalizeAppData(parsed);
     }
   } catch {
     // Invalid local data falls back to a known-good demo dataset.

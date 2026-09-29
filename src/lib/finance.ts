@@ -1,11 +1,26 @@
-import type { AppData, Investment, Transaction } from '../types';
+import type { AppData, Currency, Investment, Transaction } from '../types';
 
-export const formatMoney = (value: number, compact = false) => new Intl.NumberFormat('zh-CN', {
+export const currencySymbol = (currency: Currency = 'CNY') => currency === 'USD' ? '$' : '¥';
+
+export const formatMoney = (value: number, compact = false, currency: Currency = 'CNY') => new Intl.NumberFormat('zh-CN', {
   style: 'currency',
-  currency: 'CNY',
+  currency,
+  currencyDisplay: 'narrowSymbol',
   maximumFractionDigits: compact ? 0 : 2,
   notation: compact ? 'compact' : 'standard',
 }).format(Number.isFinite(value) ? value : 0);
+
+export const getAccountCurrency = (account: { currency?: Currency } | undefined): Currency => account?.currency === 'USD' ? 'USD' : 'CNY';
+
+export const getAccountExchangeRate = (account: { currency?: Currency; exchangeRateToCny?: number } | undefined) => {
+  if (getAccountCurrency(account) === 'CNY') return 1;
+  return account?.exchangeRateToCny && account.exchangeRateToCny > 0 ? account.exchangeRateToCny : 7.2;
+};
+
+export const getTransactionAmountInBase = (data: AppData, transaction: Pick<Transaction, 'amount' | 'accountId'>) => {
+  const account = data.accounts.find((item) => item.id === transaction.accountId);
+  return transaction.amount * getAccountExchangeRate(account);
+};
 
 export const formatPercent = (value: number) => `${Number.isFinite(value) ? value.toFixed(1) : '0.0'}%`;
 
@@ -13,8 +28,8 @@ export const investmentValue = (item: Investment) => item.units * item.currentPr
 export const investmentCost = (item: Investment) => item.units * item.averageCost;
 
 export const getCurrentNetWorth = (data: AppData) => {
-  const assets = data.accounts.filter((item) => item.kind === 'asset').reduce((sum, item) => sum + item.balance, 0);
-  const liabilities = data.accounts.filter((item) => item.kind === 'liability').reduce((sum, item) => sum + item.balance, 0);
+  const assets = data.accounts.filter((item) => item.kind === 'asset').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item), 0);
+  const liabilities = data.accounts.filter((item) => item.kind === 'liability').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item), 0);
   const investments = data.investments.reduce((sum, item) => sum + investmentValue(item), 0);
   return { assets: assets + investments, liabilities, netWorth: assets + investments - liabilities, investments };
 };
@@ -24,8 +39,8 @@ export const getMonthTransactions = (transactions: Transaction[], month: string)
 
 export const getMonthSummary = (data: AppData, month: string) => {
   const transactions = getMonthTransactions(data.transactions, month);
-  const income = transactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + item.amount, 0);
-  const expense = transactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + item.amount, 0);
+  const income = transactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
+  const expense = transactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
   return {
     transactions,
     income,
@@ -39,7 +54,7 @@ export const getCategorySpending = (data: AppData, month: string) => {
   const totals = new Map<string, number>();
   getMonthTransactions(data.transactions, month)
     .filter((item) => item.type === 'expense')
-    .forEach((item) => totals.set(item.category, (totals.get(item.category) ?? 0) + item.amount));
+    .forEach((item) => totals.set(item.category, (totals.get(item.category) ?? 0) + getTransactionAmountInBase(data, item)));
   return Array.from(totals, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 };
 

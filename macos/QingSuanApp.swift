@@ -44,13 +44,21 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
         let contentController = configuration.userContentController
         contentController.add(self, name: "nativeLog")
         contentController.add(self, name: "saveFile")
+        contentController.add(self, name: "convertPdf")
         contentController.addUserScript(WKUserScript(source: """
             window.__qingsuanSaveResolvers = {};
+            window.__qingsuanPdfResolvers = {};
             window.__qingsuanResolveSave = function (result) {
                 var entry = window.__qingsuanSaveResolvers[result.id];
                 if (!entry) return;
                 delete window.__qingsuanSaveResolvers[result.id];
                 entry.resolve(result);
+            };
+            window.__qingsuanResolvePdf = function (result) {
+                var entry = window.__qingsuanPdfResolvers[result.id];
+                if (!entry) return;
+                delete window.__qingsuanPdfResolvers[result.id];
+                if (result.error) entry.reject(new Error(result.error)); else entry.resolve(result);
             };
             window.qingsuanDesktop = {
                 saveFile: function (request) {
@@ -58,6 +66,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
                         var id = 'save-' + Date.now() + '-' + Math.random().toString(16).slice(2);
                         window.__qingsuanSaveResolvers[id] = { resolve: resolve, reject: reject };
                         window.webkit.messageHandlers.saveFile.postMessage({ id: id, filename: request.filename, content: request.content, mimeType: request.mimeType });
+                    });
+                },
+                convertPdf: function (request) {
+                    return new Promise(function (resolve, reject) {
+                        var id = 'pdf-' + Date.now() + '-' + Math.random().toString(16).slice(2);
+                        window.__qingsuanPdfResolvers[id] = { resolve: resolve, reject: reject };
+                        window.webkit.messageHandlers.convertPdf.postMessage({ id: id, provider: request.provider, url: request.url, apiKey: request.apiKey, model: request.model, timeout: request.timeout });
                     });
                 }
             };
@@ -111,7 +126,90 @@ final class AppDelegate: NSObject, NSApplicationDelegate, WKNavigationDelegate, 
             saveFile(request)
             return
         }
+        if message.name == "convertPdf", let request = message.body as? [String: Any] {
+            convertPdf(request)
+            return
+        }
         print("QingSuan WebView: \(message.body)")
+    }
+
+    private func shellQuote(_ value: String) -> String {
+        "'" + value.replacingOccurrences(of: "'", with: "'\\''") + "'"
+    }
+
+    private func convertPdf(_ request: [String: Any]) {
+        guard let id = request["id"] as? String,
+              let provider = request["provider"] as? String,
+              let url = request["url"] as? String,
+              let model = request["model"] as? String else { return }
+        let panel = NSOpenPanel()
+        panel.title = "选择招商银行流水 PDF"
+        panel.allowedFileTypes = ["pdf"]
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.begin { [weak self] response in
+            guard let self else { return }
+            guard response == .OK, let pdfURL = panel.url else {
+                self.resolvePdf(id: id, error: "已取消选择 PDF")
+                return
+            }
+            let tempDirectory = FileManager.default.temporaryDirectory.appendingPathComponent("qingsuan-pdf-\(UUID().uuidString)", isDirectory: true)
+            let outputURL = tempDirectory.appendingPathComponent("transactions.csv")
+            do {
+                try FileManager.default.createDirectory(at: tempDirectory, withIntermediateDirectories: true)
+            } catch {
+                self.resolvePdf(id: id, error: "无法创建临时目录：\(error.localizedDescription)")
+                return
+            }
+            DispatchQueue.global(qos: .userInitiated).async {
+                let scriptURL = Bundle.main.resourceURL!.appendingPathComponent("tool/parse_cmb_pdf.py")
+                #if arch(arm64)
+                let parserArch = "arm64"
+                #else
+                let parserArch = "x64"
+                #endif
+                let bundledParserURL = Bundle.main.resourceURL!.appendingPathComponent("parser/\(parserArch)/qingsuan-pdf")
+                let parserInvocation = FileManager.default.isExecutableFile(atPath: bundledParserURL.path)
+                    ? self.shellQuote(bundledParserURL.path)
+                    : "conda run -n qingsuan-pdf python \(self.shellQuote(scriptURL.path))"
+                let timeout = (request["timeout"] as? NSNumber)?.doubleValue ?? 300
+                let apiKey = request["apiKey"] as? String ?? ""
+                let command = "\(parserInvocation) \(self.shellQuote(pdfURL.path)) --output \(self.shellQuote(outputURL.path)) --classify --llm-provider \(self.shellQuote(provider)) --llm-model \(self.shellQuote(model)) --llm-url \(self.shellQuote(url)) --llm-timeout \(self.shellQuote(String(max(10.0, timeout))))"
+                let process = Process()
+                let pipe = Pipe()
+                process.executableURL = URL(fileURLWithPath: "/bin/zsh")
+                process.arguments = ["-lc", command]
+                let home = NSHomeDirectory()
+                process.environment = ["PATH": "\(home)/miniconda3/bin:\(home)/anaconda3/bin:/opt/homebrew/bin:/usr/local/bin:/opt/miniconda3/bin:/opt/anaconda3/bin:/usr/bin:/bin", "QINGSUAN_LLM_API_KEY": apiKey]
+                process.standardOutput = pipe
+                process.standardError = pipe
+                do {
+                    try process.run()
+                    process.waitUntilExit()
+                    let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+                    guard process.terminationStatus == 0 else {
+                        self.resolvePdf(id: id, error: output.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "PDF 解析失败" : output)
+                        return
+                    }
+                    let csv = try String(contentsOf: outputURL, encoding: .utf8)
+                    let filename = pdfURL.deletingPathExtension().lastPathComponent + ".csv"
+                    self.resolvePdf(id: id, csv: csv, filename: filename)
+                } catch {
+                    self.resolvePdf(id: id, error: "无法运行 PDF 解析器：\(error.localizedDescription)")
+                }
+                try? FileManager.default.removeItem(at: tempDirectory)
+            }
+        }
+    }
+
+    private func resolvePdf(id: String, csv: String? = nil, filename: String? = nil, error: String? = nil) {
+        var result: [String: Any] = ["id": id]
+        if let csv { result["csv"] = csv }
+        if let filename { result["filename"] = filename }
+        if let error { result["error"] = error }
+        guard let jsonData = try? JSONSerialization.data(withJSONObject: result),
+              let json = String(data: jsonData, encoding: .utf8) else { return }
+        DispatchQueue.main.async { self.webView.evaluateJavaScript("window.__qingsuanResolvePdf(\(json));") }
     }
 
     private func saveFile(_ request: [String: Any]) {

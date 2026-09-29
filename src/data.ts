@@ -8,7 +8,7 @@ const monthKey = (offset: number) => {
 };
 const dateInMonth = (offset: number, day: number) => `${monthKey(offset)}-${String(day).padStart(2, '0')}`;
 
-export const EXPENSE_CATEGORIES = ['餐饮', '居住', '交通', '购物', '健康', '学习', '娱乐', '人情', '其他'];
+export const EXPENSE_CATEGORIES = ['餐饮', '居住', '交通', '购物', '健康', '学习', '娱乐', '人情', '投资支出', '其他'];
 export const INCOME_CATEGORIES = ['工资', '奖金', '投资收益', '副业', '其他收入'];
 export const CATEGORY_COLORS: Record<string, string> = {
   '餐饮': '#e07a5f',
@@ -19,6 +19,7 @@ export const CATEGORY_COLORS: Record<string, string> = {
   '学习': '#6874a8',
   '娱乐': '#8a6f9e',
   '人情': '#b17a53',
+  '投资支出': '#5f7fce',
   '其他': '#7b8580',
 };
 
@@ -44,16 +45,16 @@ export const createDemoData = (): AppData => ({
   profile: { name: '我的财务', currency: 'CNY' },
   transactions,
   accounts: [
-    { id: 'a1', name: '工资卡', kind: 'asset', balance: 42680, color: '#3d6b5a' },
-    { id: 'a2', name: '日常账户', kind: 'asset', balance: 8640, color: '#d6a84b' },
-    { id: 'a3', name: '现金', kind: 'asset', balance: 1200, color: '#4d7c8a' },
-    { id: 'a4', name: '信用卡', kind: 'liability', balance: 3280, color: '#c65f6a' },
+    { id: 'a1', name: '工资卡', kind: 'asset', balance: 42680, color: '#3d6b5a', currency: 'CNY', exchangeRateToCny: 1 },
+    { id: 'a2', name: '日常账户', kind: 'asset', balance: 8640, color: '#d6a84b', currency: 'CNY', exchangeRateToCny: 1 },
+    { id: 'a3', name: '现金', kind: 'asset', balance: 1200, color: '#4d7c8a', currency: 'CNY', exchangeRateToCny: 1 },
+    { id: 'a4', name: '信用卡', kind: 'liability', balance: 3280, color: '#c65f6a', currency: 'CNY', exchangeRateToCny: 1 },
   ],
-  budgets: EXPENSE_CATEGORIES.slice(0, 8).map((category, index) => ({
+  budgets: EXPENSE_CATEGORIES.filter((category) => category !== '其他').map((category, index) => ({
     id: `b${index + 1}`,
     month: isoMonth,
     category,
-    amount: [2200, 4500, 600, 1200, 500, 500, 1000, 600][index],
+    amount: [2200, 4500, 600, 1200, 500, 500, 1000, 600, 3000][index],
   })),
   investments: [
     { id: 'i1', name: '沪深300指数', symbol: '000300', type: 'fund', units: 6.8, averageCost: 4200, currentPrice: 4380, updatedAt: new Date().toISOString().slice(0, 10) },

@@ -1,7 +1,7 @@
 import { ArrowDownRight, ArrowUpRight, Landmark, PiggyBank, Plus, Scale, WalletCards } from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CATEGORY_COLORS } from '../data';
-import { formatMoney, formatPercent, getBudgetStatus, getCategorySpending, getCurrentNetWorth, getMonthSummary, getMonthlyTrend, getNetWorthTrend } from '../lib/finance';
+import { formatMoney, formatPercent, getAccountCurrency, getBudgetStatus, getCategorySpending, getCurrentNetWorth, getMonthSummary, getMonthlyTrend, getNetWorthTrend } from '../lib/finance';
 import type { AppData } from '../types';
 
 interface DashboardProps {
@@ -145,7 +145,7 @@ export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigat
             <div className="transaction-item" key={item.id}>
               <span className={`transaction-symbol ${item.type}`}><WalletCards size={18} /></span>
               <div className="transaction-main"><strong>{item.merchant || item.category}</strong><span>{item.category} · {item.date.slice(5).replace('-', '月')}日</span></div>
-              <strong className={item.type === 'income' ? 'positive' : ''}>{item.type === 'income' ? '+' : '-'}{formatMoney(item.amount)}</strong>
+              <strong className={item.type === 'income' ? 'positive' : ''}>{item.type === 'income' ? '+' : '-'}{formatMoney(item.amount, false, getAccountCurrency(data.accounts.find((account) => account.id === item.accountId)))}</strong>
             </div>
           ))}
         </div> : <div className="empty-state"><WalletCards size={24} /><strong>本月还没有流水</strong><button className="button secondary" type="button" onClick={onAddTransaction}>记录第一笔</button></div>}

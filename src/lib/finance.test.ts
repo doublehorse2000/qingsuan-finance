@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { AppData } from '../types';
-import { getBudgetStatus, getCurrentNetWorth, getMonthSummary, investmentValue } from './finance';
+import { getBudgetStatus, getCurrentNetWorth, getMonthSummary, getTransactionAmountInBase, investmentValue } from './finance';
 
 const data: AppData = {
   version: 1,
@@ -45,5 +45,16 @@ describe('finance calculations', () => {
       spent: 2000,
       ratio: 2000 / 1500,
     });
+  });
+
+  it('converts foreign account amounts to the base currency for summaries', () => {
+    const mixedData: AppData = {
+      ...data,
+      accounts: [...data.accounts, { id: 'usd', name: '美元账户', kind: 'asset', balance: 100, color: '#000000', currency: 'USD', exchangeRateToCny: 7.2 }],
+      transactions: [...data.transactions, { id: 'usd-income', date: '2026-09-03', type: 'income', amount: 10, category: '副业', accountId: 'usd', merchant: '美元收入', note: '' }],
+    };
+    expect(getTransactionAmountInBase(mixedData, mixedData.transactions.at(-1)!)).toBe(72);
+    expect(getMonthSummary(mixedData, '2026-09').income).toBe(8072);
+    expect(getCurrentNetWorth(mixedData).assets).toBe(11720);
   });
 });

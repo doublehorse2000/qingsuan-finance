@@ -1,6 +1,6 @@
 import { Banknote, Building2, CircleDollarSign, Pencil, Plus, Trash2, TrendingUp, Wallet } from 'lucide-react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { formatMoney, getCurrentNetWorth, investmentCost, investmentValue } from '../lib/finance';
+import { formatMoney, getAccountCurrency, getCurrentNetWorth, investmentCost, investmentValue } from '../lib/finance';
 import type { Account, AppData, Investment } from '../types';
 
 interface AssetsProps {
@@ -32,9 +32,9 @@ export function Assets({ data, onAddAccount, onEditAccount, onDeleteAccount, onA
       </div>
 
       <section className="strip-metrics">
-        <div><span>净资产</span><strong>{formatMoney(totals.netWorth)}</strong></div>
-        <div><span>流动资产</span><strong>{formatMoney(totals.assets - totals.investments)}</strong></div>
-        <div><span>投资市值</span><strong>{formatMoney(totals.investments)}</strong></div>
+        <div><span>净资产（人民币）</span><strong>{formatMoney(totals.netWorth)}</strong></div>
+        <div><span>流动资产（人民币）</span><strong>{formatMoney(totals.assets - totals.investments)}</strong></div>
+        <div><span>投资市值（人民币）</span><strong>{formatMoney(totals.investments)}</strong></div>
         <div><span>投资浮动收益</span><strong className={investmentGain >= 0 ? 'positive' : 'negative'}>{investmentGain >= 0 ? '+' : ''}{formatMoney(investmentGain)}</strong></div>
       </section>
 
@@ -45,8 +45,8 @@ export function Assets({ data, onAddAccount, onEditAccount, onDeleteAccount, onA
             {data.accounts.map((account) => (
               <div className="account-item" key={account.id}>
                 <span className="account-color" style={{ background: account.color }}>{account.kind === 'asset' ? <Wallet size={18} /> : <CircleDollarSign size={18} />}</span>
-                <div><strong>{account.name}</strong><span>{account.kind === 'asset' ? '资产账户' : '负债账户'}</span></div>
-                <strong className={account.kind === 'liability' ? 'negative' : ''}>{account.kind === 'liability' ? '-' : ''}{formatMoney(account.balance)}</strong>
+                <div><strong>{account.name}</strong><span>{account.kind === 'asset' ? '资产账户' : '负债账户'} · {getAccountCurrency(account)}</span></div>
+                <strong className={account.kind === 'liability' ? 'negative' : ''}>{account.kind === 'liability' ? '-' : ''}{formatMoney(account.balance, false, getAccountCurrency(account))}</strong>
                 <div className="row-actions">
                   <button className="icon-button small" type="button" onClick={() => onEditAccount(account)} aria-label="编辑账户" title="编辑"><Pencil size={15} /></button>
                   <button className="icon-button small danger" type="button" onClick={() => onDeleteAccount(account)} aria-label="删除账户" title="删除"><Trash2 size={15} /></button>

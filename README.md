@@ -8,10 +8,12 @@
 - 收支流水：新增、编辑、删除、按月或全部月份浏览、筛选、搜索和 CSV 导出
 - 分类预算：预算进度、超支提醒和复制历史预算
 - 账户与投资：资产/负债账户、投资成本、市值、收益和配置比例
+- 多币种账户：账户可使用人民币或美元，美元账户可设置兑人民币汇率，汇总自动换算为人民币
 - 月末快照：记录总资产和总负债，形成净资产历史
 - AI 分析导出：默认导出聚合数据，可选附带流水，支持提示词、Markdown 和 JSON
 - 桌面版导出：CSV、JSON、AI 文本和 Markdown 会弹出系统保存窗口，可选择保存位置
 - 数据管理：完整 JSON 备份、恢复、演示数据和空白初始化
+- PDF 导入：桌面版可在“导入流水”页面选择招商银行 PDF，调用 Conda 解析器和可配置的本地 AI，并将分类流水直接写入账户；网页端可读取已生成的 CSV
 - 主题切换：提供浅色、深色、跟随系统三种模式，并记住选择
 - 响应式布局：适配桌面、窄窗口和移动端
 
@@ -81,7 +83,7 @@ open "/Applications/清算.app"
 src/
   components/    通用弹窗
   lib/           财务计算、备份和 AI 导出
-  views/         总览、流水、预算、资产、分析和设置
+  views/         总览、流水、PDF 导入、预算、资产、分析和设置
   data.ts        演示数据与分类配置
   store.ts       本地持久化
   types.ts       数据模型
@@ -100,6 +102,21 @@ src/
 ## 桌面应用路线
 
 当前跨平台桌面打包使用 Electron + electron-builder，前端构建结果和本地优先的数据能力在 macOS、Windows 和 Linux 中共用。macOS 还保留了 Swift/WebKit 原生外壳，可通过 `npm run build:mac` 单独生成。
+
+### 在软件中导入 PDF
+
+“导入流水”页面的“选择 PDF 并转换”功能依赖本机的 `qingsuan-pdf` Conda 环境。先完成 `tool/README.md` 中的环境安装，并启动 Ollama 或 llama.cpp 的兼容接口；然后在页面填写接口地址、模型名称和（需要时）API 密钥。桌面版会弹出文件选择器，转换完成后可预览并选择账户，点击“导入清算”即可写入流水。导入会按日期、金额、分类、交易对象和账户识别重复记录，并使用 CSV 中最后一笔联机余额同步账户余额。
+
+正式桌面安装包会把 `parse_cmb_pdf.py`、pdfplumber 和 Python 运行时编译成当前平台的独立解析器，用户运行 PDF 导入时不需要安装 Python、Conda 或 pdfplumber。开发环境如果没有构建独立解析器，Electron 才会回退到 `QINGSUAN_PYTHON` 或 `conda run -n qingsuan-pdf`。网页开发版无法直接执行 Python，只能在页面中读取已由命令行生成的 CSV。
+
+构建桌面安装包前，构建机需要安装一次 PyInstaller：
+
+```bash
+python3 -m pip install -r tool/requirements-build.txt
+npm run package:desktop
+```
+
+解析器会按构建机 CPU 架构生成并放入安装包的 `Resources/parser`。macOS ARM 和 Intel 安装包应分别在对应架构的构建机或 CI runner 上构建。
 
 下一阶段建议：
 
