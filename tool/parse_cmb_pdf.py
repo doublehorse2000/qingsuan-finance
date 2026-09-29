@@ -171,16 +171,10 @@ def parse_pdf(path: Path) -> list[ParsedTransaction]:
 
 
 def _account_label(path: Path) -> str:
-    # The masked account number is intentionally kept as shown in the PDF.
-    try:
-        with pdfplumber.open(path) as pdf:
-            first_page = pdf.pages[0].extract_text() or ""
-        match = re.search(r"账号：([^\s]+)", first_page)
-        if match:
-            return f"招商银行（{match.group(1)}）"
-    except (OSError, IndexError):
-        pass
-    return f"招商银行（{path.stem}）"
+    # The PDF only exposes a masked card number. It is not useful as an
+    # account name and makes repeated imports create separate accounts, so use
+    # the bank name unless the caller provides --account explicitly.
+    return "招商银行"
 
 
 def _classification_key(transaction: ParsedTransaction) -> tuple[str, str, str, str]:

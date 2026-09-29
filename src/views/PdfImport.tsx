@@ -74,12 +74,10 @@ export function PdfImport({ accounts, onImport }: PdfImportProps) {
     if (csvRef.current) csvRef.current.value = '';
   };
 
-  const convertPdf = async (file?: File) => {
-    if (!file) return;
+  const convertPdf = async () => {
     const desktop = window.qingsuanDesktop;
     if (!desktop || typeof desktop.convertPdf !== 'function') {
       setError('网页开发版不能直接运行 Python PDF 解析器，请使用清算桌面版，或先在 tool 目录生成 CSV 后选择“读取 CSV”。');
-      if (pdfRef.current) pdfRef.current.value = '';
       return;
     }
     setBusy(true);
@@ -100,8 +98,17 @@ export function PdfImport({ accounts, onImport }: PdfImportProps) {
       setMessage('');
     } finally {
       setBusy(false);
-      if (pdfRef.current) pdfRef.current.value = '';
     }
+  };
+
+  const choosePdf = () => {
+    // Electron opens its native chooser in the main process. Opening the
+    // hidden input first would show a second chooser when IPC starts parsing.
+    if (window.qingsuanDesktop) {
+      void convertPdf();
+      return;
+    }
+    pdfRef.current?.click();
   };
 
   const importRows = () => {
@@ -126,9 +133,12 @@ export function PdfImport({ accounts, onImport }: PdfImportProps) {
         <section className="panel import-panel">
           <div className="panel-header"><div><h2>选择文件</h2><p>桌面版可直接选择 PDF；网页端可读取解析器生成的 CSV。</p></div></div>
           <div className="import-actions">
-            <button className="button primary" type="button" disabled={busy} onClick={() => pdfRef.current?.click()}>{busy ? <LoaderCircle className="spin" size={17} /> : <FileUp size={17} />}选择 PDF 并转换</button>
+            <button className="button primary" type="button" disabled={busy} onClick={choosePdf}>{busy ? <LoaderCircle className="spin" size={17} /> : <FileUp size={17} />}选择 PDF 并转换</button>
             <button className="button secondary" type="button" onClick={() => csvRef.current?.click()}><FileDown size={17} />读取已有 CSV</button>
-            <input ref={pdfRef} className="visually-hidden" type="file" accept="application/pdf,.pdf" onChange={(event) => convertPdf(event.target.files?.[0])} />
+            <input ref={pdfRef} className="visually-hidden" type="file" accept="application/pdf,.pdf" onChange={() => {
+              if (pdfRef.current) pdfRef.current.value = '';
+              setError('网页开发版不能直接运行 PDF 解析器，请使用清算桌面版，或先生成 CSV 后选择“读取已有 CSV”。');
+            }} />
             <input ref={csvRef} className="visually-hidden" type="file" accept="text/csv,.csv" onChange={(event) => readCsv(event.target.files?.[0])} />
           </div>
           <div className="import-help"><Info size={15} /><span>PDF 需要是招商银行文本型流水。分类规则会优先识别基金销售、基金申购等投资交易。</span></div>

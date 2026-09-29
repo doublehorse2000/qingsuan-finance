@@ -4,7 +4,7 @@ import { BarChart3, BrainCircuit, FileUp, Landmark, LayoutDashboard, Menu, Monit
 import { Modal } from './components/Modal';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from './data';
 import { exportTransactionsCsv } from './lib/export';
-import type { ImportedTransaction } from './lib/csv';
+import { normalizeImportedAccountName, type ImportedTransaction } from './lib/csv';
 import { currencySymbol, getCurrentNetWorth, makeId } from './lib/finance';
 import { normalizeAppData, useFinanceData } from './store';
 import { storage } from './lib/storage';
@@ -140,8 +140,13 @@ export default function App() {
     const getAccountId = (row: ImportedTransaction) => {
       if (targetAccountId) return targetAccountId;
       const key = `${row.accountName}|${row.currency}`;
-      const existing = accountIds.get(key) ?? accounts.find((account) => account.name === row.accountName && (account.currency ?? 'CNY') === row.currency)?.id;
+      const existingAccount = accounts.find((account) => normalizeImportedAccountName(account.name) === row.accountName && (account.currency ?? 'CNY') === row.currency);
+      const existing = accountIds.get(key) ?? existingAccount?.id;
       if (existing) {
+        if (existingAccount && existingAccount.name !== row.accountName) {
+          const index = accounts.findIndex((account) => account.id === existingAccount.id);
+          if (index >= 0) accounts[index] = { ...accounts[index], name: row.accountName };
+        }
         accountIds.set(key, existing);
         return existing;
       }

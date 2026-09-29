@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { createDemoData, createEmptyData } from './data';
+import { normalizeImportedAccountName } from './lib/csv';
 import { storage } from './lib/storage';
 import type { AppData, Currency } from './types';
 
@@ -10,6 +11,7 @@ export const normalizeAppData = (data: AppData): AppData => ({
   ...data,
   accounts: data.accounts.map((account) => ({
     ...account,
+    name: normalizeImportedAccountName(account.name),
     currency: (account.currency === 'USD' ? 'USD' : 'CNY') as Currency,
     exchangeRateToCny: account.currency === 'USD'
       ? (account.exchangeRateToCny && account.exchangeRateToCny > 0 ? account.exchangeRateToCny : 7.2)

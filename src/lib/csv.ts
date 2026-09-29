@@ -55,6 +55,12 @@ const value = (row: Record<string, string>, ...keys: string[]) => {
   return '';
 };
 
+/** Hide the masked card suffix used by older CMB parser exports. */
+export const normalizeImportedAccountName = (name: string) => {
+  const trimmed = name.trim();
+  return /^招商银行\s*[（(][^）)]*[）)]$/.test(trimmed) ? '招商银行' : trimmed;
+};
+
 export const parseQingsuanCsv = (text: string): ImportedTransaction[] => {
   const rows = parseCsvRows(text);
   if (rows.length < 2) throw new Error('CSV 没有可导入的流水');
@@ -81,7 +87,7 @@ export const parseQingsuanCsv = (text: string): ImportedTransaction[] => {
       merchant: value(record, '交易对象', '对手信息') || '未命名交易',
       note: value(record, '备注', '交易摘要'),
       currency,
-      accountName: value(record, '账户') || '导入账户',
+      accountName: normalizeImportedAccountName(value(record, '账户')) || '导入账户',
       onlineBalance: Number.isFinite(onlineBalance) ? onlineBalance : undefined,
     });
   }
