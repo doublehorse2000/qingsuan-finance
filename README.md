@@ -53,7 +53,7 @@ open dist-mac/清算-macOS.dmg
 
 ## GitHub Actions 跨平台打包
 
-仓库内的 `.github/workflows/build-desktop.yml` 会在 GitHub Actions 中分别构建 macOS、Windows 和 Linux 安装包。工作流会自动安装 Python、PyInstaller 和 PDF 解析依赖，把独立解析器一起放进安装包。手动运行工作流可以获得 Actions 构建产物；推送版本标签时还会自动创建或更新 GitHub Release：
+仓库内的 `.github/workflows/build-desktop.yml` 会在 GitHub Actions 中分别构建 macOS、Windows 和 Linux 安装包。工作流会自动安装 Python、PyInstaller 和 PDF 解析依赖，把独立解析器一起放进安装包。手动运行工作流可以获得 Actions 构建产物；推送版本标签时还会自动创建或更新 GitHub Release。也可以在手动运行时填写 `release_tag`，把构建产物补传到已有版本：
 
 ```bash
 git tag v0.1.0
