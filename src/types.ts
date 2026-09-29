@@ -65,4 +65,4 @@ export interface AppData {
   snapshots: MonthlySnapshot[];
 }
 
-export type ViewId = 'dashboard' | 'transactions' | 'budgets' | 'assets' | 'analysis' | 'settings';
+export type ViewId = 'dashboard' | 'transactions' | 'import' | 'budgets' | 'assets' | 'analysis' | 'settings';

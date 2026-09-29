@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import os
 import re
 import sys
 import urllib.error
@@ -228,7 +229,10 @@ def _request_categories(
     request = urllib.request.Request(
         url,
         data=json.dumps(payload, ensure_ascii=False).encode("utf-8"),
-        headers={"Content-Type": "application/json"},
+        headers={
+            "Content-Type": "application/json",
+            **({"Authorization": f"Bearer {api_key}"} if (api_key := os.environ.get("QINGSUAN_LLM_API_KEY")) else {}),
+        },
         method="POST",
     )
     try:

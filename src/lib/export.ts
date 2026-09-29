@@ -5,6 +5,7 @@ declare global {
   interface Window {
     qingsuanDesktop?: {
       saveFile: (request: { filename: string; content: string; mimeType: string }) => Promise<{ saved: boolean; path?: string }>;
+      convertPdf: (request: { provider: 'ollama' | 'openai'; url: string; apiKey: string; model: string; timeout: number }) => Promise<{ csv: string; filename: string }>;
     };
   }
 }

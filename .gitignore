@@ -2,6 +2,8 @@ node_modules/
 dist/
 dist-mac/
 release/
+build/parser/
+.build-parser/
 *.app/
 *.dmg
 .DS_Store

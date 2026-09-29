@@ -73,6 +73,14 @@ class ClassificationTests(unittest.TestCase):
                 {0: "投资支出"},
             )
 
+    def test_sends_optional_api_key_as_bearer_header(self):
+        batch = [{"id": 0, "type": "支出"}]
+        body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": "其他"}]})}}
+        with patch.dict("os.environ", {"QINGSUAN_LLM_API_KEY": "test-key"}), patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())) as urlopen:
+            _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10)
+            request = urlopen.call_args.args[0]
+            self.assertEqual(request.get_header("Authorization"), "Bearer test-key")
+
     def test_rejects_invalid_category(self):
         batch = [{"id": 0, "type": "支出"}]
         body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": "工资"}]})}}

@@ -17,10 +17,13 @@ fi
 
 cd "$PROJECT_DIR"
 "$NPM_BIN" run build
+"$NPM_BIN" run build:parser
 
 rm -rf "$APP_DIR"
-mkdir -p "$RESOURCES_DIR/web" "$MACOS_DIR"
+mkdir -p "$RESOURCES_DIR/web" "$RESOURCES_DIR/tool" "$RESOURCES_DIR/parser" "$MACOS_DIR"
 cp -R dist/. "$RESOURCES_DIR/web/"
+cp tool/parse_cmb_pdf.py "$RESOURCES_DIR/tool/parse_cmb_pdf.py"
+cp -R build/parser/. "$RESOURCES_DIR/parser/"
 cp macos/Info.plist "$CONTENTS_DIR/Info.plist"
 printf 'APPL????' > "$CONTENTS_DIR/PkgInfo"
 

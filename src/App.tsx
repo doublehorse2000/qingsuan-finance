@@ -1,9 +1,10 @@
 import type { FormEvent } from 'react';
 import { useEffect, useState } from 'react';
-import { BarChart3, BrainCircuit, Landmark, LayoutDashboard, Menu, Monitor, Moon, Plus, ReceiptText, Settings, Sun, Target, WalletCards, X } from 'lucide-react';
+import { BarChart3, BrainCircuit, FileUp, Landmark, LayoutDashboard, Menu, Monitor, Moon, Plus, ReceiptText, Settings, Sun, Target, WalletCards, X } from 'lucide-react';
 import { Modal } from './components/Modal';
 import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from './data';
 import { exportTransactionsCsv } from './lib/export';
+import type { ImportedTransaction } from './lib/csv';
 import { currencySymbol, getCurrentNetWorth, makeId } from './lib/finance';
 import { normalizeAppData, useFinanceData } from './store';
 import { storage } from './lib/storage';
@@ -14,10 +15,12 @@ import { Budgets } from './views/Budgets';
 import { Dashboard } from './views/Dashboard';
 import { Settings as SettingsView } from './views/Settings';
 import { Transactions } from './views/Transactions';
+import { PdfImport } from './views/PdfImport';
 
 const navItems: { id: ViewId; label: string; icon: typeof LayoutDashboard }[] = [
   { id: 'dashboard', label: '总览', icon: LayoutDashboard },
   { id: 'transactions', label: '流水', icon: ReceiptText },
+  { id: 'import', label: '导入流水', icon: FileUp },
   { id: 'budgets', label: '预算', icon: Target },
   { id: 'assets', label: '资产', icon: Landmark },
   { id: 'analysis', label: 'AI 分析', icon: BrainCircuit },
@@ -25,7 +28,7 @@ const navItems: { id: ViewId; label: string; icon: typeof LayoutDashboard }[] = 
 ];
 
 const viewNames: Record<ViewId, string> = {
-  dashboard: '总览', transactions: '收支流水', budgets: '分类预算', assets: '账户与投资', analysis: 'AI 分析', settings: '数据设置',
+  dashboard: '总览', transactions: '收支流水', import: '导入银行流水', budgets: '分类预算', assets: '账户与投资', analysis: 'AI 分析', settings: '数据设置',
 };
 
 const transactionDelta = (transaction: Pick<Transaction, 'type' | 'amount'>) => transaction.type === 'income' ? transaction.amount : -transaction.amount;
@@ -127,6 +130,46 @@ export default function App() {
     }));
   };
 
+  const importTransactions = (rows: ImportedTransaction[], targetAccountId: string) => {
+    let imported = 0;
+    let skipped = 0;
+    const accounts = [...data.accounts];
+    const transactions = [...data.transactions];
+    const accountIds = new Map<string, string>();
+    const colors = ['#3d6b5a', '#d6a84b', '#4d7c8a', '#c65f6a', '#6874a8'];
+    const getAccountId = (row: ImportedTransaction) => {
+      if (targetAccountId) return targetAccountId;
+      const key = `${row.accountName}|${row.currency}`;
+      const existing = accountIds.get(key) ?? accounts.find((account) => account.name === row.accountName && (account.currency ?? 'CNY') === row.currency)?.id;
+      if (existing) {
+        accountIds.set(key, existing);
+        return existing;
+      }
+      const account = { id: makeId(), name: row.accountName, kind: 'asset' as const, balance: row.onlineBalance ?? 0, color: colors[accounts.length % colors.length], currency: row.currency, exchangeRateToCny: row.currency === 'USD' ? 7.2 : 1 };
+      accounts.push(account);
+      accountIds.set(key, account.id);
+      return account.id;
+    };
+    for (const row of rows) {
+      const accountId = getAccountId(row);
+      const fingerprint = [row.date, row.type, row.amount.toFixed(2), row.category, row.merchant, accountId].join('|');
+      const duplicate = transactions.some((item) => [item.date, item.type, item.amount.toFixed(2), item.category, item.merchant, item.accountId].join('|') === fingerprint);
+      if (duplicate) {
+        skipped += 1;
+        continue;
+      }
+      transactions.unshift({ id: makeId(), date: row.date, type: row.type, amount: row.amount, category: row.category, accountId, merchant: row.merchant, note: row.note });
+      imported += 1;
+    }
+    for (const account of accounts) {
+      const relevant = rows.filter((row) => getAccountId(row) === account.id && row.onlineBalance !== undefined);
+      const lastBalance = relevant.at(-1)?.onlineBalance;
+      if (lastBalance !== undefined) account.balance = lastBalance;
+    }
+    setData({ ...data, accounts, transactions });
+    return { imported, skipped };
+  };
+
   const openAccount = (account?: Account) => {
     setEditingAccount(account ?? null);
     setAccountCurrency(account?.currency === 'USD' ? 'USD' : 'CNY');
@@ -215,9 +258,9 @@ export default function App() {
         <button className="sidebar-close icon-button" type="button" onClick={() => setMobileNav(false)} aria-label="关闭导航"><X size={19} /></button>
         <nav>
           <p>工作台</p>
-          {navItems.slice(0, 5).map(({ id, label, icon: Icon }) => <button type="button" className={view === id ? 'active' : ''} onClick={() => navigate(id)} key={id}><Icon size={18} /><span>{label}</span></button>)}
+          {navItems.slice(0, 6).map(({ id, label, icon: Icon }) => <button type="button" className={view === id ? 'active' : ''} onClick={() => navigate(id)} key={id}><Icon size={18} /><span>{label}</span></button>)}
           <p>管理</p>
-          {navItems.slice(5).map(({ id, label, icon: Icon }) => <button type="button" className={view === id ? 'active' : ''} onClick={() => navigate(id)} key={id}><Icon size={18} /><span>{label}</span></button>)}
+          {navItems.slice(6).map(({ id, label, icon: Icon }) => <button type="button" className={view === id ? 'active' : ''} onClick={() => navigate(id)} key={id}><Icon size={18} /><span>{label}</span></button>)}
         </nav>
         <div className="sidebar-foot"><span><span className="status-light" />仅存于本机</span><small>建议每月备份一次数据</small></div>
       </aside>
@@ -245,6 +288,7 @@ export default function App() {
         <div className="content-area">
           {view === 'dashboard' && <Dashboard data={data} month={month} onAddTransaction={() => openTransaction()} onSnapshot={() => setSnapshotModal(true)} onNavigate={navigate} />}
           {view === 'transactions' && <Transactions data={data} month={month} onAdd={() => openTransaction()} onEdit={openTransaction} onDelete={deleteTransaction} onExport={() => exportTransactionsCsv(data)} />}
+          {view === 'import' && <PdfImport accounts={data.accounts} onImport={importTransactions} />}
           {view === 'budgets' && <Budgets data={data} month={month} onChange={(budgets) => setData((current) => ({ ...current, budgets }))} />}
           {view === 'assets' && <Assets data={data} onAddAccount={() => openAccount()} onEditAccount={openAccount} onDeleteAccount={deleteAccount} onAddInvestment={() => openInvestment()} onEditInvestment={openInvestment} onDeleteInvestment={deleteInvestment} />}
           {view === 'analysis' && <Analysis data={data} month={month} />}
