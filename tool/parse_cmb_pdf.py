@@ -251,6 +251,9 @@ def _request_categories(
             allowed = INCOME_CATEGORIES if transaction_type == "收入" else EXPENSE_CATEGORIES
             if index in categories:
                 raise ValueError(f"id={index} 的分类无效：{category}")
+            if isinstance(category, str):
+                # Some local models include leftover JSON delimiters inside the value.
+                category = category.strip().rstrip("}][{")
             if category not in allowed:
                 # Small local models occasionally return a category from the
                 # opposite direction. Preserve the transaction type rather

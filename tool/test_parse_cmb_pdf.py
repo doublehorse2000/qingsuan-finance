@@ -73,6 +73,15 @@ class ClassificationTests(unittest.TestCase):
                 {0: "投资支出"},
             )
 
+    def test_removes_json_delimiters_from_category_value(self):
+        batch = [{"id": 19, "type": "支出"}]
+        body = {"message": {"content": json.dumps({"items": [{"id": 19, "category": "交通}]}{"}]})}}
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
+            self.assertEqual(
+                _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10),
+                {19: "交通"},
+            )
+
     def test_sends_optional_api_key_as_bearer_header(self):
         batch = [{"id": 0, "type": "支出"}]
         body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": "其他"}]})}}
@@ -92,10 +101,12 @@ class ClassificationTests(unittest.TestCase):
 
     def test_rejects_category_outside_both_direction_lists(self):
         batch = [{"id": 0, "type": "支出"}]
-        body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": "未知分类"}]})}}
-        with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
-            with self.assertRaisesRegex(ValueError, "分类无效"):
-                _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10)
+        for category in ("未知分类", "交通说明"):
+            with self.subTest(category=category):
+                body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": category}]})}}
+                with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
+                    with self.assertRaisesRegex(ValueError, "分类无效"):
+                        _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10)
 
     def test_csv_uses_categories_without_changing_source_fields(self):
         with tempfile.TemporaryDirectory() as directory:
