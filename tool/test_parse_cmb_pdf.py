@@ -99,14 +99,26 @@ class ClassificationTests(unittest.TestCase):
                 {0: "其他"},
             )
 
-    def test_rejects_category_outside_both_direction_lists(self):
-        batch = [{"id": 0, "type": "支出"}]
-        for category in ("未知分类", "交通说明"):
-            with self.subTest(category=category):
+    def test_falls_back_for_invalid_categories(self):
+        cases = (("支出", "工资", "其他"), ("收入", "餐饮", "其他收入"), ("支出", "交通说明", "其他"))
+        for transaction_type, category, expected in cases:
+            with self.subTest(transaction_type=transaction_type, category=category):
+                batch = [{"id": 0, "type": transaction_type}]
                 body = {"message": {"content": json.dumps({"items": [{"id": 0, "category": category}]})}}
                 with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
-                    with self.assertRaisesRegex(ValueError, "分类无效"):
-                        _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10)
+                    self.assertEqual(
+                        _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10),
+                        {0: expected},
+                    )
+
+    def test_falls_back_when_model_omits_or_mangles_items(self):
+        batch = [{"id": 0, "type": "支出"}, {"id": 1, "type": "收入"}]
+        body = {"message": {"content": json.dumps({"items": [{"id": 9}, "invalid", {"id": 0, "category": "餐饮"}]})}}
+        with patch("urllib.request.urlopen", return_value=io.BytesIO(json.dumps(body).encode())):
+            self.assertEqual(
+                _request_categories(batch, "ollama", "http://127.0.0.1/test", "llama3", 10),
+                {0: "餐饮", 1: "其他收入"},
+            )
 
     def test_csv_uses_categories_without_changing_source_fields(self):
         with tempfile.TemporaryDirectory() as directory:

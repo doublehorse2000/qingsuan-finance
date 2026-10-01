@@ -195,6 +195,10 @@ def _rule_based_category(transaction: ParsedTransaction) -> str | None:
     return None
 
 
+def _fallback_category(transaction_type: str) -> str:
+    return "其他收入" if transaction_type == "收入" else "其他"
+
+
 def _request_categories(
     batch: list[dict], provider: str, url: str, model: str, timeout: float
 ) -> dict[int, str]:
@@ -241,32 +245,23 @@ def _request_categories(
         items = result["items"]
         if not isinstance(items, list):
             raise TypeError("items 不是数组")
-        categories: dict[int, str] = {}
         expected = {item["id"]: item["type"] for item in batch}
+        categories = {index: _fallback_category(transaction_type) for index, transaction_type in expected.items()}
         for item in items:
-            index, category = item["id"], item["category"]
+            if not isinstance(item, dict):
+                continue
+            index = item.get("id")
             if index not in expected:
-                raise ValueError(f"id={index} 不在请求中")
+                continue
             transaction_type = expected[index]
             allowed = INCOME_CATEGORIES if transaction_type == "收入" else EXPENSE_CATEGORIES
-            if index in categories:
-                raise ValueError(f"id={index} 的分类无效：{category}")
+            category = item.get("category")
             if isinstance(category, str):
                 # Some local models include leftover JSON delimiters inside the value.
                 category = category.strip().rstrip("}][{")
             if category not in allowed:
-                # Small local models occasionally return a category from the
-                # opposite direction. Preserve the transaction type rather
-                # than failing the whole CSV conversion.
-                if transaction_type == "支出" and category in INCOME_CATEGORIES:
-                    category = "其他"
-                elif transaction_type == "收入" and category in EXPENSE_CATEGORIES:
-                    category = "其他收入"
-                else:
-                    raise ValueError(f"id={index} 的分类无效：{category}")
+                category = _fallback_category(transaction_type)
             categories[index] = category
-        if categories.keys() != expected.keys():
-            raise ValueError("分类数量或 id 与请求不一致")
         return categories
     except (KeyError, IndexError, TypeError, ValueError) as error:
         raise ValueError(f"本地模型返回的分类无效：{error}") from error
