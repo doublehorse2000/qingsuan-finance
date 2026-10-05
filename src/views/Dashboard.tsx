@@ -2,7 +2,7 @@ import { ArrowDownRight, ArrowUpRight, Landmark, PiggyBank, Plus, Scale, WalletC
 import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CATEGORY_COLORS } from '../data';
-import { formatMoney, formatPercent, getAccountCurrency, getBudgetStatus, getCategorySpending, getCurrentNetWorth, getMonthSummary, getMonthlyTrend, getNetWorthTrend } from '../lib/finance';
+import { formatMoney, formatPercent, getAccountCurrency, getBudgetStatus, getCategorySpending, getCurrentNetWorth, getMonthSummary, getMonthlyTrend, getNetWorthTrend, investmentCostInCny, investmentValueInCny } from '../lib/finance';
 import type { AppData } from '../types';
 
 interface DashboardProps {
@@ -14,6 +14,7 @@ interface DashboardProps {
 }
 
 const moneyTick = (value: number) => `${Math.round(value / 1000)}k`;
+const investmentColors = ['#3d6b5a', '#d6a84b', '#4d7c8a', '#c65f6a', '#8a6f9e', '#7b8580'];
 
 export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigate }: DashboardProps) {
   const [spendingMonth, setSpendingMonth] = useState(month);
@@ -31,6 +32,9 @@ export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigat
   const expenseChange = previous?.expense ? ((summary.expense - previous.expense) / previous.expense) * 100 : 0;
   const totalBudget = budgets.reduce((sum, item) => sum + item.amount, 0);
   const budgetUsage = totalBudget > 0 ? (summary.expense / totalBudget) * 100 : 0;
+  const investmentAllocation = data.investments.map((item) => ({ name: item.name, value: investmentValueInCny(item, data.profile.usdToCny ?? 7.2) })).filter((item) => item.value > 0).sort((a, b) => b.value - a.value);
+  const investmentCost = data.investments.reduce((sum, item) => sum + investmentCostInCny(item, data.profile.usdToCny ?? 7.2), 0);
+  const investmentGain = netWorth.investments - investmentCost;
 
   return (
     <div className="page-stack">
@@ -116,6 +120,26 @@ export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigat
               </div>
             </>
           ) : <div className="empty-inline">{selectedSpendingMonth} 还没有支出记录</div>}
+        </section>
+
+        <section className="panel chart-panel">
+          <div className="panel-header"><div><h2>投资配置</h2><p>按当前市值计算</p></div><span className={investmentGain >= 0 ? 'positive' : 'negative'}>{investmentGain >= 0 ? '+' : ''}{formatMoney(investmentGain, true)}</span></div>
+          {investmentAllocation.length ? <>
+            <div className="donut-frame">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie data={investmentAllocation} dataKey="value" nameKey="name" innerRadius={57} outerRadius={83} paddingAngle={2} stroke="none">
+                    {investmentAllocation.map((item, index) => <Cell key={item.name} fill={investmentColors[index % investmentColors.length]} />)}
+                  </Pie>
+                  <Tooltip formatter={(value) => formatMoney(Number(value))} />
+                </PieChart>
+              </ResponsiveContainer>
+              <div className="donut-center"><span>投资市值</span><strong>{formatMoney(netWorth.investments, true)}</strong></div>
+            </div>
+            <div className="category-legend">
+              {investmentAllocation.slice(0, 4).map((item, index) => <div key={item.name}><span><i className="dot" style={{ background: investmentColors[index % investmentColors.length] }} />{item.name}</span><strong>{netWorth.investments ? `${((item.value / netWorth.investments) * 100).toFixed(1)}%` : '0%'}</strong></div>)}
+            </div>
+          </> : <div className="empty-inline">还没有投资持仓</div>}
         </section>
 
         <section className="panel chart-panel wide-panel">
