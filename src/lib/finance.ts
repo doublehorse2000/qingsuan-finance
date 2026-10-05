@@ -39,10 +39,13 @@ export const getCurrentNetWorth = (data: AppData) => {
 export const getMonthTransactions = (transactions: Transaction[], month: string) =>
   transactions.filter((item) => item.date.startsWith(month));
 
+/** Investment purchases reduce the linked account balance but are not consumption expenses. */
+export const isInvestmentTransaction = (transaction: Pick<Transaction, 'category'>) => transaction.category === '投资支出';
+
 export const getMonthSummary = (data: AppData, month: string) => {
   const transactions = getMonthTransactions(data.transactions, month);
   const income = transactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
-  const expense = transactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
+  const expense = transactions.filter((item) => item.type === 'expense' && !isInvestmentTransaction(item)).reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
   return {
     transactions,
     income,
@@ -55,7 +58,7 @@ export const getMonthSummary = (data: AppData, month: string) => {
 export const getCategorySpending = (data: AppData, month: string) => {
   const totals = new Map<string, number>();
   getMonthTransactions(data.transactions, month)
-    .filter((item) => item.type === 'expense')
+    .filter((item) => item.type === 'expense' && !isInvestmentTransaction(item))
     .forEach((item) => totals.set(item.category, (totals.get(item.category) ?? 0) + getTransactionAmountInBase(data, item)));
   return Array.from(totals, ([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
 };

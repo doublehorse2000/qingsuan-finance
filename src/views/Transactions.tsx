@@ -1,6 +1,6 @@
 import { Download, Pencil, Plus, Search, Trash2, WalletCards } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
-import { formatMoney, getAccountCurrency, getMonthSummary, getTransactionAmountInBase } from '../lib/finance';
+import { formatMoney, getAccountCurrency, getMonthSummary, getTransactionAmountInBase, isInvestmentTransaction } from '../lib/finance';
 import type { AppData, Transaction } from '../types';
 
 interface TransactionsProps {
@@ -27,7 +27,7 @@ export function Transactions({ data, month, onAdd, onEdit, onDelete, onExport }:
     : getMonthSummary(data, monthFilter).transactions, [data, monthFilter]);
   const visibleSummary = useMemo(() => {
     const income = visibleTransactions.filter((item) => item.type === 'income').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
-    const expense = visibleTransactions.filter((item) => item.type === 'expense').reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
+    const expense = visibleTransactions.filter((item) => item.type === 'expense' && !isInvestmentTransaction(item)).reduce((sum, item) => sum + getTransactionAmountInBase(data, item), 0);
     return { income, expense, balance: income - expense };
   }, [data, visibleTransactions]);
   const categories = [...new Set(visibleTransactions.map((item) => item.category))];

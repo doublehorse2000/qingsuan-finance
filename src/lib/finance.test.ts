@@ -39,6 +39,16 @@ describe('finance calculations', () => {
     });
   });
 
+  it('excludes investment purchases from monthly expenses while retaining them as transactions', () => {
+    const withInvestmentPurchase: AppData = {
+      ...data,
+      transactions: [...data.transactions, { id: 'investment', date: '2026-09-03', type: 'expense', amount: 3000, category: '投资支出', accountId: 'cash', merchant: '基金申购', note: '' }],
+    };
+    const summary = getMonthSummary(withInvestmentPurchase, '2026-09');
+    expect(summary.expense).toBe(2000);
+    expect(summary.transactions).toHaveLength(3);
+  });
+
   it('flags budget usage above 100 percent', () => {
     expect(getBudgetStatus(data, '2026-09')[0]).toMatchObject({
       category: '餐饮',
