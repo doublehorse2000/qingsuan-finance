@@ -1,4 +1,5 @@
 import { ArrowDownRight, ArrowUpRight, Landmark, PiggyBank, Plus, Scale, WalletCards } from 'lucide-react';
+import { useMemo, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, Cell, Legend, Line, LineChart, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import { CATEGORY_COLORS } from '../data';
 import { formatMoney, formatPercent, getAccountCurrency, getBudgetStatus, getCategorySpending, getCurrentNetWorth, getMonthSummary, getMonthlyTrend, getNetWorthTrend } from '../lib/finance';
@@ -15,9 +16,13 @@ interface DashboardProps {
 const moneyTick = (value: number) => `${Math.round(value / 1000)}k`;
 
 export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigate }: DashboardProps) {
+  const [spendingMonth, setSpendingMonth] = useState(month);
   const summary = getMonthSummary(data, month);
   const netWorth = getCurrentNetWorth(data);
-  const spending = getCategorySpending(data, month);
+  const spendingMonths = useMemo(() => [...new Set([month, ...data.transactions.map((item) => item.date.slice(0, 7))])].sort((a, b) => b.localeCompare(a)), [data.transactions, month]);
+  const selectedSpendingMonth = spendingMonths.includes(spendingMonth) ? spendingMonth : month;
+  const spendingSummary = getMonthSummary(data, selectedSpendingMonth);
+  const spending = getCategorySpending(data, selectedSpendingMonth);
   const budgets = getBudgetStatus(data, month);
   const trend = getMonthlyTrend(data, month);
   const netWorthTrend = getNetWorthTrend(data);
@@ -85,7 +90,12 @@ export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigat
         </section>
 
         <section className="panel chart-panel">
-          <div className="panel-header"><div><h2>支出去向</h2><p>本月分类占比</p></div></div>
+          <div className="panel-header">
+            <div><h2>支出去向</h2><p>{selectedSpendingMonth} 分类占比</p></div>
+            <select className="month-filter" value={selectedSpendingMonth} onChange={(event) => setSpendingMonth(event.target.value)} aria-label="支出去向月份">
+              {spendingMonths.map((item) => <option value={item} key={item}>{item}</option>)}
+            </select>
+          </div>
           {spending.length ? (
             <>
               <div className="donut-frame">
@@ -97,7 +107,7 @@ export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigat
                     <Tooltip formatter={(value) => formatMoney(Number(value))} />
                   </PieChart>
                 </ResponsiveContainer>
-                <div className="donut-center"><span>总支出</span><strong>{formatMoney(summary.expense, true)}</strong></div>
+                <div className="donut-center"><span>总支出</span><strong>{formatMoney(spendingSummary.expense, true)}</strong></div>
               </div>
               <div className="category-legend">
                 {spending.slice(0, 4).map((item) => (
@@ -105,7 +115,7 @@ export function Dashboard({ data, month, onAddTransaction, onSnapshot, onNavigat
                 ))}
               </div>
             </>
-          ) : <div className="empty-inline">本月还没有支出记录</div>}
+          ) : <div className="empty-inline">{selectedSpendingMonth} 还没有支出记录</div>}
         </section>
 
         <section className="panel chart-panel wide-panel">
