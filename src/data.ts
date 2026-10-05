@@ -42,7 +42,7 @@ const transactions: AppData['transactions'] = [
 
 export const createDemoData = (): AppData => ({
   version: 1,
-  profile: { name: '我的财务', currency: 'CNY' },
+  profile: { name: '我的财务', currency: 'CNY', usdToCny: 7.2 },
   transactions,
   accounts: [
     { id: 'a1', name: '工资卡', kind: 'asset', balance: 42680, color: '#3d6b5a', currency: 'CNY', exchangeRateToCny: 1 },
@@ -72,7 +72,7 @@ export const createDemoData = (): AppData => ({
 
 export const createEmptyData = (): AppData => ({
   version: 1,
-  profile: { name: '我的财务', currency: 'CNY' },
+  profile: { name: '我的财务', currency: 'CNY', usdToCny: 7.2 },
   transactions: [],
   accounts: [],
   budgets: [],

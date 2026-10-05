@@ -42,6 +42,7 @@ export interface Investment {
   averageCost: number;
   currentPrice: number;
   updatedAt: string;
+  currency?: Currency;
 }
 
 export interface MonthlySnapshot {
@@ -57,6 +58,7 @@ export interface AppData {
   profile: {
     name: string;
     currency: 'CNY';
+    usdToCny?: number;
   };
   transactions: Transaction[];
   accounts: Account[];

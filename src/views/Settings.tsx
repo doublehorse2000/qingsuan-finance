@@ -9,9 +9,10 @@ interface SettingsProps {
   onImport: (data: AppData) => void;
   onResetEmpty: () => void;
   onResetDemo: () => void;
+  onRateChange: (rate: number) => void;
 }
 
-export function Settings({ data, isDemo, onImport, onResetEmpty, onResetDemo }: SettingsProps) {
+export function Settings({ data, isDemo, onImport, onResetEmpty, onResetDemo, onRateChange }: SettingsProps) {
   const fileRef = useRef<HTMLInputElement>(null);
   const [message, setMessage] = useState('');
 
@@ -39,6 +40,8 @@ export function Settings({ data, isDemo, onImport, onResetEmpty, onResetDemo }: 
       </div>
 
       {message && <div className="notice" role="status"><Info size={17} />{message}</div>}
+
+      <section className="settings-section"><div className="settings-intro"><span className="settings-icon"><Info size={20} /></span><div><h2>货币与汇率</h2><p>统一设置美元持仓和账户换算成人民币时使用的汇率。</p></div></div><form className="form-grid" onSubmit={(event) => { event.preventDefault(); const rate = Math.max(0.0001, Number(new FormData(event.currentTarget).get('usdToCny')) || 7.2); onRateChange(rate); setMessage('汇率已保存，所有美元资产会按新汇率换算。'); }}><label className="field"><span>美元兑人民币</span><input name="usdToCny" type="number" min="0.0001" step="0.0001" defaultValue={data.profile.usdToCny ?? 7.2} required /><small>1 美元 = 多少人民币</small></label><div><button className="button primary" type="submit">保存汇率</button></div></form></section>
 
       <section className="settings-section">
         <div className="settings-intro"><span className="settings-icon"><Database size={20} /></span><div><h2>备份与迁移</h2><p>JSON 备份包含完整数据；CSV 适合在表格软件中继续处理。</p></div></div>

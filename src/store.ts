@@ -9,6 +9,7 @@ const DEMO_KEY = 'qingsuan.finance.isDemo';
 
 export const normalizeAppData = (data: AppData): AppData => ({
   ...data,
+  profile: { ...data.profile, usdToCny: (data.profile?.usdToCny ?? 0) > 0 ? data.profile.usdToCny : 7.2 },
   accounts: data.accounts.map((account) => ({
     ...account,
     name: normalizeImportedAccountName(account.name),
@@ -17,6 +18,7 @@ export const normalizeAppData = (data: AppData): AppData => ({
       ? (account.exchangeRateToCny && account.exchangeRateToCny > 0 ? account.exchangeRateToCny : 7.2)
       : 1,
   })),
+  investments: data.investments.map((item) => ({ ...item, currency: item.currency === 'USD' ? 'USD' : 'CNY' })),
 });
 
 const isAppData = (value: unknown): value is AppData => {

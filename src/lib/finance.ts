@@ -26,11 +26,13 @@ export const formatPercent = (value: number) => `${Number.isFinite(value) ? valu
 
 export const investmentValue = (item: Investment) => item.units * item.currentPrice;
 export const investmentCost = (item: Investment) => item.units * item.averageCost;
+export const investmentValueInCny = (item: Investment, usdToCny: number) => investmentValue(item) * (item.currency === 'USD' ? usdToCny : 1);
+export const investmentCostInCny = (item: Investment, usdToCny: number) => investmentCost(item) * (item.currency === 'USD' ? usdToCny : 1);
 
 export const getCurrentNetWorth = (data: AppData) => {
   const assets = data.accounts.filter((item) => item.kind === 'asset').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item), 0);
   const liabilities = data.accounts.filter((item) => item.kind === 'liability').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item), 0);
-  const investments = data.investments.reduce((sum, item) => sum + investmentValue(item), 0);
+  const investments = data.investments.reduce((sum, item) => sum + investmentValueInCny(item, data.profile.usdToCny ?? 7.2), 0);
   return { assets: assets + investments, liabilities, netWorth: assets + investments - liabilities, investments };
 };
 

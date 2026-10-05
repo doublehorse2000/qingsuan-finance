@@ -1,6 +1,6 @@
 import { Banknote, Building2, CircleDollarSign, Pencil, Plus, Trash2, TrendingUp, Wallet } from 'lucide-react';
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts';
-import { formatMoney, getAccountCurrency, getCurrentNetWorth, investmentCost, investmentValue } from '../lib/finance';
+import { formatMoney, getAccountCurrency, getCurrentNetWorth, investmentCost, investmentCostInCny, investmentValue, investmentValueInCny } from '../lib/finance';
 import type { Account, AppData, Investment } from '../types';
 
 interface AssetsProps {
@@ -17,9 +17,9 @@ const allocationColors = ['#3d6b5a', '#d6a84b', '#4d7c8a', '#c65f6a', '#8a6f9e',
 
 export function Assets({ data, onAddAccount, onEditAccount, onDeleteAccount, onAddInvestment, onEditInvestment, onDeleteInvestment }: AssetsProps) {
   const totals = getCurrentNetWorth(data);
-  const investedCost = data.investments.reduce((sum, item) => sum + investmentCost(item), 0);
+  const investedCost = data.investments.reduce((sum, item) => sum + investmentCostInCny(item, data.profile.usdToCny ?? 7.2), 0);
   const investmentGain = totals.investments - investedCost;
-  const allocation = data.investments.map((item) => ({ name: item.name, value: investmentValue(item) })).filter((item) => item.value > 0);
+  const allocation = data.investments.map((item) => ({ name: item.name, value: investmentValueInCny(item, data.profile.usdToCny ?? 7.2) })).filter((item) => item.value > 0);
 
   return (
     <div className="page-stack">

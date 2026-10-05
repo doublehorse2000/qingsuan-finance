@@ -223,6 +223,7 @@ export default function App() {
       averageCost: Math.max(0, Number(form.get('averageCost'))),
       currentPrice: Math.max(0, Number(form.get('currentPrice'))),
       updatedAt: String(form.get('updatedAt')),
+      currency: String(form.get('currency')) as Currency,
     };
     setData((current) => ({ ...current, investments: editingInvestment ? current.investments.map((item) => item.id === editingInvestment.id ? next : item) : [...current.investments, next] }));
     setInvestmentModal(false);
@@ -297,7 +298,7 @@ export default function App() {
           {view === 'budgets' && <Budgets data={data} month={month} onChange={(budgets) => setData((current) => ({ ...current, budgets }))} />}
           {view === 'assets' && <Assets data={data} onAddAccount={() => openAccount()} onEditAccount={openAccount} onDeleteAccount={deleteAccount} onAddInvestment={() => openInvestment()} onEditInvestment={openInvestment} onDeleteInvestment={deleteInvestment} />}
           {view === 'analysis' && <Analysis data={data} month={month} />}
-          {view === 'settings' && <SettingsView data={data} isDemo={isDemo} onImport={(next: AppData) => replaceData(normalizeAppData(next), false)} onResetEmpty={resetEmpty} onResetDemo={resetDemo} />}
+          {view === 'settings' && <SettingsView data={data} isDemo={isDemo} onImport={(next: AppData) => replaceData(normalizeAppData(next), false)} onResetEmpty={resetEmpty} onResetDemo={resetDemo} onRateChange={(rate) => setData((current) => ({ ...current, profile: { ...current.profile, usdToCny: rate } }))} />}
         </div>
       </main>
 
@@ -333,6 +334,7 @@ export default function App() {
           <label className="field"><span>份额</span><input name="units" type="number" min="0" step="0.0001" defaultValue={editingInvestment?.units ?? ''} required /></label>
           <label className="field"><span>平均成本价</span><input name="averageCost" type="number" min="0" step="0.0001" defaultValue={editingInvestment?.averageCost ?? ''} required /></label>
           <label className="field"><span>当前价格</span><input name="currentPrice" type="number" min="0" step="0.0001" defaultValue={editingInvestment?.currentPrice ?? ''} required /></label>
+          <label className="field"><span>货币</span><select name="currency" defaultValue={editingInvestment?.currency ?? 'CNY'}><option value="CNY">人民币（CNY）</option><option value="USD">美元（USD）</option></select></label>
           <label className="field full"><span>价格更新日期</span><input name="updatedAt" type="date" defaultValue={editingInvestment?.updatedAt ?? new Date().toISOString().slice(0, 10)} required /></label>
         </div>
       </Modal>
