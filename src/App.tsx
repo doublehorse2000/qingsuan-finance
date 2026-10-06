@@ -130,6 +130,13 @@ export default function App() {
     }));
   };
 
+  const bulkUpdateTransactionCategory = (ids: string[], category: string) => {
+    setData((current) => ({
+      ...current,
+      transactions: current.transactions.map((item) => ids.includes(item.id) ? { ...item, category } : item),
+    }));
+  };
+
   const importTransactions = (rows: ImportedTransaction[], targetAccountId: string) => {
     let imported = 0;
     let skipped = 0;
@@ -293,7 +300,7 @@ export default function App() {
         {isDemo && view !== 'settings' && <div className="demo-banner"><span>当前显示演示数据，可以放心体验所有功能。</span><button type="button" onClick={() => navigate('settings')}>开始使用自己的数据</button></div>}
         <div className="content-area">
           {view === 'dashboard' && <Dashboard data={data} month={month} onAddTransaction={() => openTransaction()} onSnapshot={() => setSnapshotModal(true)} onNavigate={navigate} />}
-          {view === 'transactions' && <Transactions data={data} month={month} onAdd={() => openTransaction()} onEdit={openTransaction} onDelete={deleteTransaction} onExport={() => exportTransactionsCsv(data)} />}
+          {view === 'transactions' && <Transactions data={data} month={month} onAdd={() => openTransaction()} onEdit={openTransaction} onDelete={deleteTransaction} onExport={() => exportTransactionsCsv(data)} onBulkCategoryUpdate={bulkUpdateTransactionCategory} />}
           {view === 'import' && <PdfImport accounts={data.accounts} onImport={importTransactions} />}
           {view === 'budgets' && <Budgets data={data} month={month} onChange={(budgets) => setData((current) => ({ ...current, budgets }))} />}
           {view === 'assets' && <Assets data={data} onAddAccount={() => openAccount()} onEditAccount={openAccount} onDeleteAccount={deleteAccount} onAddInvestment={() => openInvestment()} onEditInvestment={openInvestment} onDeleteInvestment={deleteInvestment} />}

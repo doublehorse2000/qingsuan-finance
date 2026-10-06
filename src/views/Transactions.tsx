@@ -1,7 +1,8 @@
-import { Download, Pencil, Plus, Search, Trash2, WalletCards } from 'lucide-react';
+import { CheckSquare, Download, Pencil, Plus, Search, Trash2, WalletCards } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { formatMoney, getAccountCurrency, getMonthSummary, getTransactionAmountInBase, isInvestmentTransaction } from '../lib/finance';
 import type { AppData, Transaction } from '../types';
+import { EXPENSE_CATEGORIES, INCOME_CATEGORIES } from '../data';
 
 interface TransactionsProps {
   data: AppData;
@@ -10,13 +11,16 @@ interface TransactionsProps {
   onEdit: (transaction: Transaction) => void;
   onDelete: (transaction: Transaction) => void;
   onExport: () => void;
+  onBulkCategoryUpdate: (ids: string[], category: string) => void;
 }
 
-export function Transactions({ data, month, onAdd, onEdit, onDelete, onExport }: TransactionsProps) {
+export function Transactions({ data, month, onAdd, onEdit, onDelete, onExport, onBulkCategoryUpdate }: TransactionsProps) {
   const [query, setQuery] = useState('');
   const [type, setType] = useState<'all' | 'income' | 'expense'>('all');
   const [category, setCategory] = useState('all');
   const [monthFilter, setMonthFilter] = useState(month);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [bulkCategory, setBulkCategory] = useState('');
   useEffect(() => {
     if (monthFilter !== 'all') setMonthFilter(month);
   }, [month]);
@@ -37,6 +41,15 @@ export function Transactions({ data, month, onAdd, onEdit, onDelete, onExport }:
     .filter((item) => `${item.merchant} ${item.note} ${item.category}`.toLowerCase().includes(query.toLowerCase()))
     .sort((a, b) => b.date.localeCompare(a.date)), [visibleTransactions, type, category, query]);
   const scopeLabel = monthFilter === 'all' ? '全部月份' : monthFilter;
+  const selectedVisible = filtered.filter((item) => selectedIds.includes(item.id));
+  const allSelected = filtered.length > 0 && selectedVisible.length === filtered.length;
+  const toggleAll = () => setSelectedIds(allSelected ? selectedIds.filter((id) => !filtered.some((item) => item.id === id)) : [...new Set([...selectedIds, ...filtered.map((item) => item.id)])]);
+  const applyBulkCategory = () => {
+    if (!bulkCategory || !selectedIds.length) return;
+    onBulkCategoryUpdate(selectedIds, bulkCategory);
+    setSelectedIds([]);
+    setBulkCategory('');
+  };
 
   return (
     <div className="page-stack">
@@ -72,15 +85,16 @@ export function Transactions({ data, month, onAdd, onEdit, onDelete, onExport }:
             </select>
           </div>
         </div>
+        {selectedIds.length > 0 && <div className="bulk-toolbar"><span><CheckSquare size={16} /> 已选择 {selectedIds.length} 笔</span><select value={bulkCategory} onChange={(event) => setBulkCategory(event.target.value)} aria-label="批量修改分类"><option value="">批量修改分类…</option>{[...EXPENSE_CATEGORIES, ...INCOME_CATEGORIES.filter((item) => !EXPENSE_CATEGORIES.includes(item))].map((item) => <option key={item}>{item}</option>)}</select><button className="button secondary" type="button" disabled={!bulkCategory} onClick={applyBulkCategory}>应用</button><button className="text-button" type="button" onClick={() => setSelectedIds([])}>取消选择</button></div>}
         {filtered.length ? (
           <div className="table-scroll">
             <table>
-              <thead><tr><th>日期</th><th>交易对象</th><th>分类</th><th>账户</th><th className="amount-cell">金额</th><th aria-label="操作" /></tr></thead>
+              <thead><tr><th><input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label="选择当前筛选结果" /></th><th>日期</th><th>交易对象</th><th>分类</th><th>账户</th><th className="amount-cell">金额</th><th aria-label="操作" /></tr></thead>
               <tbody>
                 {filtered.map((item) => {
                   const account = data.accounts.find((candidate) => candidate.id === item.accountId);
                   return <tr key={item.id}>
-                    <td className="muted-cell">{item.date}</td>
+                    <td><input type="checkbox" checked={selectedIds.includes(item.id)} onChange={() => setSelectedIds((current) => current.includes(item.id) ? current.filter((id) => id !== item.id) : [...current, item.id])} aria-label={`选择 ${item.merchant || item.category}`} /></td><td className="muted-cell">{item.date}</td>
                     <td><div className="table-title"><strong>{item.merchant || item.category}</strong>{item.note && <span>{item.note}</span>}</div></td>
                     <td><span className="category-chip">{item.category}</span></td>
                     <td className="muted-cell">{account ? `${account.name} · ${getAccountCurrency(account)}` : '未指定'}</td>
