@@ -65,7 +65,7 @@ export const buildAnalysisPackage = (data: AppData, month: string, includeTransa
     categorySpending: getCategorySpending(data, month),
     budgets: budgets.map((item) => ({ category: item.category, budget: item.amount, spent: item.spent, usagePercent: Number((item.ratio * 100).toFixed(1)) })),
     monthlyTrend: getMonthlyTrend(data, month, 6),
-    accounts: data.accounts.map((item) => ({ name: item.name, kind: item.kind, balance: item.balance, currency: getAccountCurrency(item), exchangeRateToCny: getAccountExchangeRate(item), balanceInCny: Number((item.balance * getAccountExchangeRate(item)).toFixed(2)) })),
+    accounts: data.accounts.map((item) => ({ name: item.name, kind: item.kind, balance: item.balance, currency: getAccountCurrency(item), exchangeRateToCny: getAccountExchangeRate(item, data.profile.usdToCny), balanceInCny: Number((item.balance * getAccountExchangeRate(item, data.profile.usdToCny)).toFixed(2)) })),
     investments: data.investments.map((item) => ({
       name: item.name,
       symbol: item.symbol || undefined,

@@ -12,14 +12,15 @@ export const formatMoney = (value: number, compact = false, currency: Currency =
 
 export const getAccountCurrency = (account: { currency?: Currency } | undefined): Currency => account?.currency === 'USD' ? 'USD' : 'CNY';
 
-export const getAccountExchangeRate = (account: { currency?: Currency; exchangeRateToCny?: number } | undefined) => {
+export const getAccountExchangeRate = (account: { currency?: Currency; exchangeRateToCny?: number } | undefined, usdToCny?: number) => {
   if (getAccountCurrency(account) === 'CNY') return 1;
+  if (usdToCny && usdToCny > 0) return usdToCny;
   return account?.exchangeRateToCny && account.exchangeRateToCny > 0 ? account.exchangeRateToCny : 7.2;
 };
 
 export const getTransactionAmountInBase = (data: AppData, transaction: Pick<Transaction, 'amount' | 'accountId'>) => {
   const account = data.accounts.find((item) => item.id === transaction.accountId);
-  return transaction.amount * getAccountExchangeRate(account);
+  return transaction.amount * getAccountExchangeRate(account, data.profile.usdToCny);
 };
 
 export const formatPercent = (value: number) => `${Number.isFinite(value) ? value.toFixed(1) : '0.0'}%`;
@@ -30,8 +31,8 @@ export const investmentValueInCny = (item: Investment, usdToCny: number) => inve
 export const investmentCostInCny = (item: Investment, usdToCny: number) => investmentCost(item) * (item.currency === 'USD' ? usdToCny : 1);
 
 export const getCurrentNetWorth = (data: AppData) => {
-  const assets = data.accounts.filter((item) => item.kind === 'asset').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item), 0);
-  const liabilities = data.accounts.filter((item) => item.kind === 'liability').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item), 0);
+  const assets = data.accounts.filter((item) => item.kind === 'asset').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item, data.profile.usdToCny), 0);
+  const liabilities = data.accounts.filter((item) => item.kind === 'liability').reduce((sum, item) => sum + item.balance * getAccountExchangeRate(item, data.profile.usdToCny), 0);
   const investments = data.investments.reduce((sum, item) => sum + investmentValueInCny(item, data.profile.usdToCny ?? 7.2), 0);
   return { assets: assets + investments, liabilities, netWorth: assets + investments - liabilities, investments };
 };
