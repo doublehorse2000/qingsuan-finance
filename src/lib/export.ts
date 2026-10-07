@@ -1,5 +1,5 @@
 import type { AppData } from '../types';
-import { getBudgetStatus, getCategorySpending, getCurrentNetWorth, getMonthSummary, getMonthlyTrend, investmentCost, investmentValue } from './finance';
+import { getBudgetStatus, getCategorySpending, getCurrentNetWorth, getMonthSummary, getMonthlyTrend, getAccountExchangeRate, getAccountCurrency, investmentCost, investmentCostInCny, investmentValue, investmentValueInCny } from './finance';
 
 declare global {
   interface Window {
@@ -65,14 +65,23 @@ export const buildAnalysisPackage = (data: AppData, month: string, includeTransa
     categorySpending: getCategorySpending(data, month),
     budgets: budgets.map((item) => ({ category: item.category, budget: item.amount, spent: item.spent, usagePercent: Number((item.ratio * 100).toFixed(1)) })),
     monthlyTrend: getMonthlyTrend(data, month, 6),
-    accounts: data.accounts.map((item) => ({ name: item.name, kind: item.kind, balance: item.balance, currency: item.currency ?? 'CNY', exchangeRateToCny: item.exchangeRateToCny ?? (item.currency === 'USD' ? 7.2 : 1) })),
+    accounts: data.accounts.map((item) => ({ name: item.name, kind: item.kind, balance: item.balance, currency: getAccountCurrency(item), exchangeRateToCny: getAccountExchangeRate(item), balanceInCny: Number((item.balance * getAccountExchangeRate(item)).toFixed(2)) })),
     investments: data.investments.map((item) => ({
       name: item.name,
-      symbol: item.symbol,
+      symbol: item.symbol || undefined,
       type: item.type,
+      currency: item.currency ?? 'CNY',
+      units: item.units,
+      averageCost: item.averageCost,
+      currentPrice: item.currentPrice,
+      updatedAt: item.updatedAt,
       marketValue: investmentValue(item),
+      marketValueInCny: investmentValueInCny(item, data.profile.usdToCny ?? 7.2),
       cost: investmentCost(item),
+      costInCny: investmentCostInCny(item, data.profile.usdToCny ?? 7.2),
       gain: investmentValue(item) - investmentCost(item),
+      gainPercent: investmentCost(item) > 0 ? Number((((investmentValue(item) - investmentCost(item)) / investmentCost(item)) * 100).toFixed(2)) : null,
+      allocationPercent: netWorth.investments > 0 ? Number(((investmentValueInCny(item, data.profile.usdToCny ?? 7.2) / netWorth.investments) * 100).toFixed(2)) : 0,
     })),
     transactions: includeTransactions ? summary.transactions.map(({ id: _id, accountId, ...item }) => ({
       ...item,
@@ -84,7 +93,7 @@ export const buildAnalysisPackage = (data: AppData, month: string, includeTransa
 
 export const buildAnalysisPrompt = (data: AppData, month: string, includeTransactions: boolean) => {
   const payload = buildAnalysisPackage(data, month, includeTransactions);
-  return `你是一名审慎、非推销导向的个人财务分析助手。请基于下面的数据完成月度复盘：\n\n1. 用 5 句话总结本月财务健康度。\n2. 找出最多 3 个值得关注的变化或风险，并引用具体数字。\n3. 给出下月可执行的预算调整，按优先级排序。\n4. 评价储蓄率、应急资金和负债水平；信息不足时明确说明，不要猜测。\n5. 投资部分只讨论配置、集中度和成本，不预测涨跌，不做具体买卖指令。\n\n财务数据（汇总金额按人民币，流水金额保留账户币种）：\n${JSON.stringify(payload, null, 2)}`;
+  return `你是一名审慎、非推销导向的个人财务分析助手。请基于下面的数据完成月度复盘：\n\n1. 用 5 句话总结本月财务健康度。\n2. 找出最多 3 个值得关注的变化或风险，并引用具体数字。\n3. 给出下月可执行的预算调整，按优先级排序。\n4. 评价储蓄率、应急资金、负债水平，以及账户余额与投资市值的流动性结构；信息不足时明确说明，不要猜测。\n5. 单独分析投资持仓：按资产类型和单项持仓说明市值占比、集中度、成本与浮动收益率，指出需要补充的数据。只讨论配置、集中度和成本，不预测涨跌，不做具体买卖指令。\n\n财务数据（汇总金额按人民币，账户和持仓同时保留原币种及人民币折算）：\n${JSON.stringify(payload, null, 2)}`;
 };
 
 export const exportAnalysisJson = async (data: AppData, month: string, includeTransactions: boolean) => {
